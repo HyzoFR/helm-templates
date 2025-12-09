@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Shell</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #4cc9f0;
+            font-size: 20px;
+        }
+        
+        .info {
+            color: #ffaa00;
+            font-size: 14px;
+        }
+        
+        #terminal {
+            flex: 1;
+            background: #000;
+            border: 2px solid #4cc9f0;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        
+        .instructions {
+            margin-top: 10px;
+            padding: 10px;
+            background: #16213e;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .instructions strong {
+            color: #4cc9f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="title">Server Shell</h1>
+        <div class="info">Type 'exit' to close</div>
+    </div>
+    
+    <div id="terminal"></div>
+    
+    <div class="instructions">
+        <strong>Instructions:</strong> You have shell access to the container. 
+        Type <strong>exit</strong> or press <strong>Ctrl+D</strong> to close the shell.
+        The server will continue running after you exit.
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const serverName = urlParams.get('server');
+
+        document.getElementById('title').textContent = `${serverName} - Shell`;
+
+        // Initialize xterm.js
+        const term = new Terminal({
+            cursorBlink: true,
+            fontSize: 14,
+            fontFamily: 'Monaco, Courier New, monospace',
+            convertEol: true,
+            theme: {
+                background: '#000000',
+                foreground: '#ffffff',
+                cursor: '#4cc9f0',
+                selection: '#4cc9f033'
+            }
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+
+        term.loadAddon(fitAddon);
+        term.loadAddon(webLinksAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        // Focus the terminal
+        term.focus();
+
+        // Connect to WebSocket for shell
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.hostname}:3000/shell/${serverName}`);
+
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = () => {
+            term.writeln('\x1b[32m✓ Connected to server shell\x1b[0m');
+            term.writeln('\x1b[33mType commands and press Enter. Type "exit" to close.\x1b[0m');
+            term.writeln('');
+            // Send initial command to get prompt
+            ws.send('PS1="\\$ "\n');
+        };
+
+        ws.onmessage = (event) => {
+            const data = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data);
+            term.write(data);
+        };
+
+        ws.onerror = (error) => {
+            term.writeln('\x1b[31m✗ Connection error\x1b[0m');
+            console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+            term.writeln('\x1b[33m\nShell closed\x1b[0m');
+        };
+
+        // Handle terminal input
+        term.onData((data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
+            }
+        });
+
+        // Handle Ctrl+D (EOT)
+        term.onKey((e) => {
+            if (e.domEvent.ctrlKey && e.domEvent.key === 'd') {
+                ws.send('\x04'); // Send EOT character
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+            // Send resize event to backend
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'resize',
+                    cols: term.cols,
+                    rows: term.rows
+                }));
+            }
+        });
+
+        // Clean up on close
+        window.addEventListener('beforeunload', () => {
+            ws.close();
+        });
+
+        // Keep terminal focused
+        document.getElementById('terminal').addEventListener('click', () => {
+            term.focus();
+        });
+    </script>
+</body>
+</html>
+

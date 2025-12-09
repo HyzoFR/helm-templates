@@ -1,0 +1,14 @@
+apiVersion: v2
+name: java-app-runner
+description: A Helm chart for running Java applications
+type: application
+version: 1.0.0
+appVersion: "1.0"
+keywords:
+  - java
+  - application
+  - runner
+maintainers:
+  - name: Hyzo
+    email: ""
+

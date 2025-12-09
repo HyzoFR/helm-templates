@@ -1,0 +1,63 @@
+# Example values file for Java App Runner
+# This demonstrates a typical Minecraft server setup
+
+replicaCount: 1
+
+image:
+  repository: eclipse-temurin
+  tag: 21-jdk-alpine
+  pullPolicy: IfNotPresent
+
+app:
+  # Download from a Git repository
+  download:
+    type: "GitRepo"
+    source: "https://github.com/yourusername/minecraft-server.git"
+    git:
+      branch: "main"  # Specify branch (e.g., "dev", "main", "master")
+      username: ""
+      password: ""  # Use for private repos
+  
+  # Java configuration
+  java:
+    version: "21"
+    args: "-Xmx2G -Xms2G -XX:+UseG1GC"
+  
+  # Application settings
+  jarName: "server.jar"
+  jarOptions: "nogui"
+  appDir: ""  # Subdirectory if needed
+  
+  # Server configuration
+  server:
+    name: "My Minecraft Server"
+    port: 25565
+
+# Expose the service
+service:
+  type: LoadBalancer
+  port: 25565
+  protocol: TCP
+
+# Resource limits
+resources:
+  limits:
+    cpu: 4000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+# Persistent storage
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  mountPath: /app/java-app-runner
+
+# Environment variables
+env:
+  - name: TZ
+    value: "UTC"
+

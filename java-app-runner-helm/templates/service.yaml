@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "java-app-runner.fullname" . }}
+  labels:
+    {{- include "java-app-runner.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: app-port
+    protocol: {{ .Values.service.protocol }}
+    name: app-port
+  selector:
+    {{- include "java-app-runner.selectorLabels" . | nindent 4 }}
+

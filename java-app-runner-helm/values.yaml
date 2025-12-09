@@ -1,0 +1,93 @@
+# Default values for java-app-runner
+replicaCount: 1
+
+# Network configuration
+hostNetwork: true  # Use host network for direct port exposure
+
+# Debug sidecar (optional)
+debug:
+  enabled: false  # Set to true to add a debug sidecar container with shell access
+
+image:
+  repository: eclipse-temurin
+  tag: 21-jdk-alpine
+  pullPolicy: IfNotPresent
+
+# Java application configuration
+app:
+  # Download configuration
+  download:
+    type: ""  # Options: DownloadURL, GithubRelease, GitRepo, None
+    source: ""  # Git repo URL, GitHub User/Repo, or Download URL
+    
+    # Git repo specific settings
+    git:
+      branch: ""
+      username: ""
+      password: ""
+    
+    # GitHub release specific settings
+    github:
+      filename: ""
+      version: ""  # Empty = latest
+  
+  # Java configuration
+  java:
+    version: "21"  # Eclipse Temurin version: 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 11, 8
+    args: ""  # JVM arguments like -Xmx1024M -Xms1024M
+    
+  # Application settings
+  jarName: ""  # Name of the jar file to run
+  jarOptions: ""  # Options to pass to the jar
+  appDir: ""  # Subdirectory under root where app is installed
+  
+  # Configuration replacements - replaces tokens in ALL files after download
+  # Format: key-value pairs where key is the token to find and value is the replacement
+  # Tokens can be in any format you want (e.g., {{TOKEN}}, ${TOKEN}, %TOKEN%, etc.)
+  configReplacements: {}
+    # Example:
+    # "{{SERVER_NAME}}": "My Server"
+    # "{{SERVER_PORT}}": "25565"
+    # "{{MAX_PLAYERS}}": "100"
+    # "server-name=.*": "server-name=My Server"
+    # "server-port=.*": "server-port=25565"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 25565
+  protocol: TCP  # Options: TCP, UDP, Both
+
+# Resource limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Persistence
+persistence:
+  enabled: true
+  type: "pvc"  # Options: "pvc" or "hostPath"
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /app/java-app-runner
+  hostPath: ""  # Only used when type is "hostPath", e.g., /Users/username/app/java-app-runner
+
+# Environment variables
+env: []
+  # - name: EXAMPLE_VAR
+  #   value: "example_value"
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+

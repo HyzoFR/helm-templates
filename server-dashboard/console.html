@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Console</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #00d9ff;
+            font-size: 20px;
+        }
+        
+        .info {
+            color: #ffaa00;
+            font-size: 14px;
+        }
+        
+        #terminal {
+            flex: 1;
+            background: #000;
+            border: 2px solid #00d9ff;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        
+        .instructions {
+            margin-top: 10px;
+            padding: 10px;
+            background: #16213e;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .instructions strong {
+            color: #00d9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="title">Server Console - Attach</h1>
+        <div class="info">Press Ctrl+P then Ctrl+Q to detach</div>
+    </div>
+    
+    <div id="terminal"></div>
+    
+    <div class="instructions">
+        <strong>Instructions:</strong> You are attached to the Java process. 
+        To detach without killing the server, press <strong>Ctrl+P</strong> then <strong>Ctrl+Q</strong>.
+        If you close this window, the server will continue running.
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const serverName = urlParams.get('server');
+
+        document.getElementById('title').textContent = `${serverName} - Console (Attach)`;
+
+        // Initialize xterm.js
+        const term = new Terminal({
+            cursorBlink: true,
+            fontSize: 14,
+            fontFamily: 'Monaco, Courier New, monospace',
+            convertEol: false,
+            scrollback: 10000,
+            allowProposedApi: true,
+            theme: {
+                background: '#000000',
+                foreground: '#ffffff',
+                cursor: '#00d9ff',
+                selection: '#00d9ff33'
+            }
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+
+        term.loadAddon(fitAddon);
+        term.loadAddon(webLinksAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        // Focus the terminal
+        term.focus();
+
+        // Connect to WebSocket for attach
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.hostname}:3000/attach/${serverName}`);
+
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = () => {
+            // Server will send its own connection message
+        };
+
+        ws.onmessage = (event) => {
+            const data = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data);
+            term.write(data);
+        };
+
+        ws.onerror = (error) => {
+            term.writeln('\x1b[31m✗ Connection error\x1b[0m');
+            console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+            term.writeln('\x1b[33m\nConnection closed\x1b[0m');
+        };
+
+        // Handle terminal input
+        term.onData((data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+            // Send resize event to backend
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'resize',
+                    cols: term.cols,
+                    rows: term.rows
+                }));
+            }
+        });
+
+        // Clean up on close
+        window.addEventListener('beforeunload', () => {
+            ws.close();
+        });
+
+        // Keep terminal focused
+        document.getElementById('terminal').addEventListener('click', () => {
+            term.focus();
+        });
+    </script>
+</body>
+</html>
+

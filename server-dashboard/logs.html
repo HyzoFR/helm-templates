@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Logs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #00d9ff;
+            font-size: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #00d9ff;
+            color: #000;
+        }
+        
+        button:hover {
+            opacity: 0.8;
+        }
+        
+        .logs-container {
+            background: #0f0f0f;
+            border: 2px solid #00d9ff;
+            border-radius: 10px;
+            padding: 20px;
+            height: calc(100vh - 120px);
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .log-line {
+            margin: 2px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .log-line.error {
+            color: #ff4444;
+        }
+        
+        .log-line.warn {
+            color: #ffaa00;
+        }
+        
+        .log-line.info {
+            color: #00ff88;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #00d9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="title">Server Logs</h1>
+        <div class="controls">
+            <button onclick="toggleAutoScroll()">Auto-scroll: <span id="autoscroll-status">ON</span></button>
+            <button onclick="clearLogs()">Clear</button>
+            <button onclick="refreshLogs()">Refresh</button>
+        </div>
+    </div>
+    
+    <div class="logs-container" id="logs">
+        <div class="loading">Loading logs...</div>
+    </div>
+    
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const serverName = urlParams.get('server');
+        const API_URL = 'http://localhost:3000/api';
+        let autoScroll = true;
+        
+        document.getElementById('title').textContent = `${serverName} - Logs`;
+        
+        async function refreshLogs() {
+            try {
+                const response = await fetch(`${API_URL}/servers/${serverName}/logs`);
+                const data = await response.json();
+                
+                const container = document.getElementById('logs');
+                container.innerHTML = '';
+                
+                const lines = data.logs.split('\n');
+                lines.forEach(line => {
+                    if (!line.trim()) return; // Skip empty lines
+
+                    const div = document.createElement('div');
+                    div.className = 'log-line';
+
+                    // Convert ANSI color codes to HTML
+                    let htmlLine = line
+                        // Red (error)
+                        .replace(/\x1b\[31;?1?m/g, '<span style="color: #ff4444; font-weight: bold;">')
+                        .replace(/\x1b\[31m/g, '<span style="color: #ff4444;">')
+                        .replace(/\x1b\[91m/g, '<span style="color: #ff6666;">')
+                        // Yellow (warning)
+                        .replace(/\x1b\[33;?1?m/g, '<span style="color: #ffaa00; font-weight: bold;">')
+                        .replace(/\x1b\[33m/g, '<span style="color: #ffaa00;">')
+                        .replace(/\x1b\[93m/g, '<span style="color: #ffcc00;">')
+                        // Green (info)
+                        .replace(/\x1b\[32;?1?m/g, '<span style="color: #00ff88; font-weight: bold;">')
+                        .replace(/\x1b\[32m/g, '<span style="color: #00ff88;">')
+                        .replace(/\x1b\[92m/g, '<span style="color: #00ffaa;">')
+                        // Cyan
+                        .replace(/\x1b\[36;?1?m/g, '<span style="color: #00d9ff; font-weight: bold;">')
+                        .replace(/\x1b\[36m/g, '<span style="color: #00d9ff;">')
+                        .replace(/\x1b\[96m/g, '<span style="color: #00eeff;">')
+                        // White/Gray
+                        .replace(/\x1b\[97m/g, '<span style="color: #ffffff;">')
+                        .replace(/\x1b\[37m/g, '<span style="color: #cccccc;">')
+                        // Bold
+                        .replace(/\x1b\[1m/g, '<span style="font-weight: bold;">')
+                        // Reset
+                        .replace(/\x1b\[0m/g, '</span>')
+                        .replace(/\x1b\[m/g, '</span>');
+
+                    div.innerHTML = htmlLine;
+                    container.appendChild(div);
+                });
+                
+                if (autoScroll) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (error) {
+                document.getElementById('logs').innerHTML = `<div class="loading">Error loading logs: ${error.message}</div>`;
+            }
+        }
+        
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            document.getElementById('autoscroll-status').textContent = autoScroll ? 'ON' : 'OFF';
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        // Load logs on page load
+        refreshLogs();
+        
+        // Auto-refresh every 2 seconds
+        setInterval(refreshLogs, 2000);
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,216 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "java-app-runner.fullname" . }}
+  labels:
+    {{- include "java-app-runner.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if .Values.hostNetwork }}
+  strategy:
+    type: Recreate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "java-app-runner.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "java-app-runner.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      initContainers:
+      # Setup dependencies
+      - name: setup-dependencies
+        image: alpine:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            set -e
+            apk add --no-cache git wget unzip curl bash
+            echo "Dependencies installed successfully"
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/java-app-runner
+
+      # Download Application
+      {{- if ne .Values.app.download.type "None" }}
+      - name: download-app
+        image: alpine:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            set -e
+            apk add --no-cache git git-lfs wget unzip curl bash
+            cd /app/java-app-runner
+
+            {{- if eq .Values.app.download.type "GitRepo" }}
+            # Git Repository Download
+            if [ ! -d .git ]; then
+              echo "Cloning Git repository..."
+              {{- if .Values.app.download.git.password }}
+              {{- if .Values.app.download.git.username }}
+              DOWNLOAD_URL="{{ .Values.app.download.source }}"
+              DOWNLOAD_URL="${DOWNLOAD_URL/https:\/\//https://{{ .Values.app.download.git.username }}:{{ .Values.app.download.git.password }}@}"
+              {{- else }}
+              DOWNLOAD_URL="{{ .Values.app.download.source }}"
+              DOWNLOAD_URL="${DOWNLOAD_URL/https:\/\//https://{{ .Values.app.download.git.password }}@}"
+              {{- end }}
+              {{- else }}
+              DOWNLOAD_URL="{{ .Values.app.download.source }}"
+              {{- end }}
+
+              # Initialize Git LFS
+              git lfs install
+
+              {{- if .Values.app.download.git.branch }}
+              # Clone specific branch
+              git clone -b {{ .Values.app.download.git.branch }} "$DOWNLOAD_URL" srv
+              {{- else }}
+              # Clone default branch
+              git clone "$DOWNLOAD_URL" srv
+              {{- end }}
+
+              cd srv
+
+              # Pull LFS files
+              git lfs pull
+
+              cd ..
+              cp -r srv/. ./
+              rm -rf srv
+              echo "Git repository cloned successfully (with LFS files)"
+            else
+              echo "Git repository already exists, pulling latest changes..."
+              git lfs install
+
+              {{- if .Values.app.download.git.branch }}
+              # Checkout specified branch
+              git fetch origin
+              git checkout {{ .Values.app.download.git.branch }} --force
+              git pull origin {{ .Values.app.download.git.branch }}
+              {{- else }}
+              # Pull default branch
+              git pull
+              {{- end }}
+
+              git lfs pull
+            fi
+
+            # Apply configuration replacements to all files
+            {{- if .Values.app.configReplacements }}
+            echo "Applying configuration replacements to all files..."
+            {{- range $search, $replace := .Values.app.configReplacements }}
+            echo "Replacing '{{ $search }}' with '{{ $replace }}'"
+            find . -type f ! -path './.git/*' -exec sed -i 's|{{ $search }}|{{ $replace }}|g' {} + 2>/dev/null || true
+            {{- end }}
+            echo "Configuration replacements applied"
+            {{- end }}
+            {{- else if eq .Values.app.download.type "GithubRelease" }}
+            # GitHub Release Download
+            echo "Downloading from GitHub release..."
+            {{- if .Values.app.download.github.version }}
+            RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/download/{{ .Values.app.download.github.version }}/{{ .Values.app.download.github.filename }}"
+            {{- else }}
+            RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/latest/download/{{ .Values.app.download.github.filename }}"
+            {{- end }}
+
+            wget -O app-download.zip "$RELEASE_URL"
+            unzip -o app-download.zip
+            rm -f app-download.zip
+            echo "GitHub release downloaded successfully"
+            {{- else if eq .Values.app.download.type "DownloadURL" }}
+            # Direct URL Download
+            echo "Downloading from URL..."
+            wget -O app-download.zip "{{ .Values.app.download.source }}"
+            unzip -o app-download.zip
+            rm -f app-download.zip
+            echo "Application downloaded successfully"
+            {{- end }}
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/java-app-runner
+      {{- end }}
+
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        workingDir: /app/java-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
+        stdin: true
+        tty: true
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            # Use exec to replace shell with Java, making Java PID 1
+            # The tty and stdin settings allow attachment
+            # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)
+            exec java {{ .Values.app.java.args }} -jar {{ .Values.app.jarName }} {{ .Values.app.jarOptions }}
+        ports:
+        - name: app-port
+          containerPort: {{ .Values.service.port }}
+          protocol: {{ .Values.service.protocol }}
+        env:
+        {{- if .Values.hostNetwork }}
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        {{- end }}
+        {{- if .Values.env }}
+        {{- toYaml .Values.env | nindent 8 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/java-app-runner
+      {{- if .Values.debug.enabled }}
+      # Debug sidecar container for shell access
+      - name: debug
+        image: alpine:latest
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            echo "Debug sidecar started. You can exec into this container for debugging."
+            tail -f /dev/null
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/java-app-runner
+      {{- end }}
+      volumes:
+      - name: app-data
+        {{- if .Values.persistence.enabled }}
+        {{- if eq .Values.persistence.type "hostPath" }}
+        hostPath:
+          path: {{ .Values.persistence.hostPath }}
+          type: DirectoryOrCreate
+        {{- else }}
+        persistentVolumeClaim:
+          claimName: {{ include "java-app-runner.fullname" . }}
+        {{- end }}
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
