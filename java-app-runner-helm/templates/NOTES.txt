@@ -35,11 +35,15 @@ To access your application locally:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "java-app-runner.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
 {{- end }}
 
-{{- if .Values.persistence.enabled }}
+{{- if and .Values.persistence .Values.persistence.enabled }}
 
 Persistent storage is enabled. Your data will be stored in:
+  {{- if eq .Values.persistence.type "hostPath" }}
+  Host Path: {{ .Values.persistence.hostPath }}
+  {{- else }}
   PVC: {{ include "java-app-runner.fullname" . }}
   Size: {{ .Values.persistence.size }}
+  {{- end }}
 {{- else }}
 
 WARNING: Persistent storage is disabled. Your data will be lost if the pod restarts!

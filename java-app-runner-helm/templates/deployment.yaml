@@ -245,7 +245,7 @@ spec:
       {{- end }}
       volumes:
       - name: app-data
-        {{- if .Values.persistence.enabled }}
+        {{- if and .Values.persistence .Values.persistence.enabled }}
         {{- if eq .Values.persistence.type "hostPath" }}
         hostPath:
           path: {{ .Values.persistence.hostPath }}

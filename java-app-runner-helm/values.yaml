@@ -76,15 +76,15 @@ resources:
     cpu: 500m
     memory: 1Gi
 
-# Persistence
-persistence:
-  enabled: true
-  type: "pvc"  # Options: "pvc" or "hostPath"
-  storageClass: ""
-  accessMode: ReadWriteOnce
-  size: 10Gi
-  mountPath: /app/java-app-runner
-  hostPath: ""  # Only used when type is "hostPath", e.g., /Users/username/app/java-app-runner
+# Persistence (optional - if not specified, uses emptyDir which loses data on pod restart)
+# persistence:
+#   enabled: true
+#   type: "pvc"  # Options: "pvc" or "hostPath"
+#   storageClass: ""
+#   accessMode: ReadWriteOnce
+#   size: 10Gi
+#   mountPath: /app/java-app-runner
+#   hostPath: ""  # Only used when type is "hostPath", e.g., /Users/username/app/java-app-runner
 
 # Environment variables
 env: []
