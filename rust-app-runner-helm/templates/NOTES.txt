@@ -1,0 +1,51 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your Rust application is being deployed.
+
+Release name: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Application Configuration:
+- Download Type: {{ .Values.app.download.type }}
+{{- if .Values.app.download.source }}
+- Download Source: {{ .Values.app.download.source }}
+{{- end }}
+- Binary Name: {{ .Values.app.binaryName }}
+- Service Port: {{ .Values.service.port }}
+
+To get the status of your deployment:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To view logs:
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
+
+{{- if eq .Values.service.type "LoadBalancer" }}
+
+To get the external IP address:
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "rust-app-runner.fullname" . }}
+
+NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+{{- else if eq .Values.service.type "NodePort" }}
+
+To get the NodePort:
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "rust-app-runner.fullname" . }}
+{{- else }}
+
+To access your application locally:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "rust-app-runner.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+{{- end }}
+
+{{- if and .Values.persistence .Values.persistence.enabled }}
+
+Persistent storage is enabled. Your data will be stored in:
+  {{- if eq .Values.persistence.type "hostPath" }}
+  Host Path: {{ .Values.persistence.hostPath }}
+  {{- else }}
+  PVC: {{ include "rust-app-runner.fullname" . }}
+  Size: {{ .Values.persistence.size }}
+  {{- end }}
+{{- else }}
+
+WARNING: Persistent storage is disabled. Your data will be lost if the pod restarts!
+{{- end }}
+

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rust-app-runner.fullname" . }}
+  labels:
+    {{- include "rust-app-runner.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: app-port
+    protocol: {{ .Values.service.protocol }}
+    name: app-port
+  selector:
+    {{- include "rust-app-runner.selectorLabels" . | nindent 4 }}
+

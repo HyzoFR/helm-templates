@@ -1,0 +1,91 @@
+# Default values for rust-app-runner
+replicaCount: 1
+
+# Network configuration
+hostNetwork: true  # Use host network for direct port exposure
+
+# Debug sidecar (optional)
+debug:
+  enabled: false  # Set to true to add a debug sidecar container with shell access
+
+image:
+  repository: rust
+  tag: alpine
+  pullPolicy: IfNotPresent
+
+# Rust application configuration
+app:
+  # Download configuration
+  download:
+    type: ""  # Options: DownloadURL, GithubRelease, GitRepo, None
+    source: ""  # Git repo URL, GitHub User/Repo, or Download URL
+    
+    # Git repo specific settings
+    git:
+      branch: ""
+      username: ""
+      password: ""
+    
+    # GitHub release specific settings
+    github:
+      filename: ""
+      version: ""  # Empty = latest
+  
+  # Rust configuration
+  rust:
+    buildRelease: true  # Build in release mode (--release)
+    buildArgs: ""  # Additional cargo build arguments
+    
+  # Application settings
+  binaryName: ""  # Name of the binary to run (after building)
+  binaryArgs: ""  # Arguments to pass to the binary
+  appDir: ""  # Subdirectory under root where app is installed
+  
+  # Configuration replacements - replaces tokens in ALL files after download
+  # Format: key-value pairs where key is the token to find and value is the replacement
+  # Tokens can be in any format you want (e.g., {{TOKEN}}, ${TOKEN}, %TOKEN%, etc.)
+  configReplacements: {}
+    # Example:
+    # "{{SERVER_NAME}}": "My Server"
+    # "{{SERVER_PORT}}": "8080"
+    # "{{MAX_CONNECTIONS}}": "100"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  protocol: TCP  # Options: TCP, UDP, Both
+
+# Resource limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Persistence (optional - if not specified, uses emptyDir which loses data on pod restart)
+# persistence:
+#   enabled: true
+#   type: "pvc"  # Options: "pvc" or "hostPath"
+#   storageClass: ""
+#   accessMode: ReadWriteOnce
+#   size: 10Gi
+#   mountPath: /app/rust-app-runner
+#   hostPath: ""  # Only used when type is "hostPath", e.g., /Users/username/app/rust-app-runner
+
+# Environment variables
+env: []
+  # - name: EXAMPLE_VAR
+  #   value: "example_value"
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+

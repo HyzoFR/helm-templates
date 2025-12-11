@@ -1,0 +1,14 @@
+apiVersion: v2
+name: rust-app-runner
+description: A Helm chart for running Rust applications
+type: application
+version: 1.0.0
+appVersion: "1.0"
+keywords:
+  - rust
+  - application
+  - runner
+maintainers:
+  - name: Hyzo
+    email: ""
+
