@@ -41,16 +41,25 @@ app:
   jarOptions: ""  # Options to pass to the jar
   appDir: ""  # Subdirectory under root where app is installed
   
-  # Configuration replacements - replaces tokens in ALL files after download
-  # Format: key-value pairs where key is the token to find and value is the replacement
-  # Tokens can be in any format you want (e.g., {{TOKEN}}, ${TOKEN}, %TOKEN%, etc.)
+  # Configuration replacements - replaces tokens in specific files after download
+  # Format: file path as key, then key-value pairs for replacements in that file
+  # File paths are relative to /app/java-app-runner (or appDir if specified)
   configReplacements: {}
     # Example:
-    # "{{SERVER_NAME}}": "My Server"
-    # "{{SERVER_PORT}}": "25565"
-    # "{{MAX_PLAYERS}}": "100"
-    # "server-name=.*": "server-name=My Server"
-    # "server-port=.*": "server-port=25565"
+    # "server.properties":
+    #   "%SERVER_NAME%": "My Server"
+    #   "%SERVER_PORT%": "25565"
+    # "config/settings.yml":
+    #   "%MAX_PLAYERS%": "100"
+    #   "%DIFFICULTY%": "hard"
+
+  # Template files to copy before running (optional)
+  # Useful for copying world templates, default configs, etc.
+  templateFiles: []
+    # Example:
+    # - hostPath: "/Users/username/templates/overworld.zip"  # Source zip file on host (read-only)
+    #   extractTo: "world"  # Destination path relative to /app/java-app-runner (or appDir)
+    #   overwrite: false  # If true, always extract. If false, only extract if destination doesn't exist
 
 # Service configuration
 service:

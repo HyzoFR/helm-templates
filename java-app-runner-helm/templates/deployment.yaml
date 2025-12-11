@@ -104,12 +104,19 @@ spec:
               git lfs pull
             fi
 
-            # Apply configuration replacements to all files
+            # Apply configuration replacements to specific files
             {{- if .Values.app.configReplacements }}
-            echo "Applying configuration replacements to all files..."
-            {{- range $search, $replace := .Values.app.configReplacements }}
-            echo "Replacing '{{ $search }}' with '{{ $replace }}'"
-            find . -type f ! -path './.git/*' -exec sed -i 's|{{ $search }}|{{ $replace }}|g' {} + 2>/dev/null || true
+            echo "Applying configuration replacements to specific files..."
+            {{- range $filePath, $replacements := .Values.app.configReplacements }}
+            if [ -f "{{ $filePath }}" ]; then
+              echo "Processing file: {{ $filePath }}"
+              {{- range $search, $replace := $replacements }}
+              echo "  Replacing '{{ $search }}' with '{{ $replace }}'"
+              sed -i 's|{{ $search }}|{{ $replace }}|g' "{{ $filePath }}"
+              {{- end }}
+            else
+              echo "Warning: File not found: {{ $filePath }}"
+            fi
             {{- end }}
             echo "Configuration replacements applied"
             {{- end }}
@@ -137,6 +144,55 @@ spec:
         volumeMounts:
         - name: app-data
           mountPath: /app/java-app-runner
+      {{- end }}
+
+      # Copy template files (optional)
+      {{- if .Values.app.templateFiles }}
+      - name: copy-templates
+        image: alpine:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            set -e
+            apk add --no-cache unzip
+            cd /app/java-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
+
+            {{- range $index, $template := .Values.app.templateFiles }}
+            echo "Processing template {{ $index }}: {{ $template.hostPath }}"
+
+            # Check if destination exists
+            {{- if $template.overwrite }}
+            echo "Overwrite enabled, extracting to {{ $template.extractTo }}..."
+            {{- else }}
+            if [ -e "{{ $template.extractTo }}" ]; then
+              echo "Destination {{ $template.extractTo }} already exists, skipping..."
+              {{- if ne (add1 $index) (len $.Values.app.templateFiles) }}
+              continue
+              {{- end }}
+            fi
+            echo "Destination {{ $template.extractTo }} does not exist, extracting..."
+            {{- end }}
+
+            # Copy and extract the template
+            if [ -f "/templates/template-{{ $index }}.zip" ]; then
+              unzip -o "/templates/template-{{ $index }}.zip" -d "{{ $template.extractTo }}"
+              echo "Template extracted to {{ $template.extractTo }}"
+            else
+              echo "Error: Template file not found at /templates/template-{{ $index }}.zip"
+              exit 1
+            fi
+            {{- end }}
+
+            echo "All templates processed successfully"
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/java-app-runner
+        {{- range $index, $template := .Values.app.templateFiles }}
+        - name: template-{{ $index }}
+          mountPath: /templates/template-{{ $index }}.zip
+        {{- end }}
       {{- end }}
 
       containers:
@@ -201,6 +257,12 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
+      {{- range $index, $template := .Values.app.templateFiles }}
+      - name: template-{{ $index }}
+        hostPath:
+          path: {{ $template.hostPath }}
+          type: File
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

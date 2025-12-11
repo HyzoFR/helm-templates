@@ -27,11 +27,25 @@ app:
   jarName: "server.jar"
   jarOptions: "nogui"
   appDir: ""  # Subdirectory if needed
-  
-  # Server configuration
-  server:
-    name: "My Minecraft Server"
-    port: 25565
+
+  # Configuration replacements - replaces tokens in specific files
+  configReplacements:
+    "server.properties":
+      "%SERVER_NAME%": "My Minecraft Server"
+      "%SERVER_PORT%": "25565"
+      "%MAX_PLAYERS%": "20"
+    "config/paper-global.yml":
+      "%ENABLE_COMMAND_BLOCK%": "true"
+
+  # Template files to copy before running (optional)
+  # Example: Copy a pre-built world from a template
+  templateFiles:
+    - hostPath: "/Users/username/minecraft-templates/overworld.zip"
+      extractTo: "world"
+      overwrite: false  # Only copy if world doesn't exist
+    - hostPath: "/Users/username/minecraft-templates/nether.zip"
+      extractTo: "world_nether"
+      overwrite: false
 
 # Expose the service
 service:
