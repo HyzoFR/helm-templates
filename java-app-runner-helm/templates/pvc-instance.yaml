@@ -1,5 +1,6 @@
-{{- if not .Values.instances }}
+{{- if .Values.instances }}
 {{- if and .Values.persistence (and .Values.persistence.enabled (eq .Values.persistence.type "pvc")) }}
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

@@ -14,6 +14,7 @@ A Helm chart for running Java applications in Kubernetes. This chart provides th
 - Configurable resources and scaling
 - Path-based configuration file replacements
 - Template file copying (e.g., world templates for Minecraft servers)
+- **Multiple instances support**: Run multiple instances with different configurations from a single values file
 
 ## Installation
 
@@ -125,11 +126,115 @@ This will:
 
 **Note:** The host path must be accessible from the Kubernetes node. For local development (Docker Desktop, Minikube), use paths on your local machine.
 
+### Multiple Instances
+
+Run multiple instances as separate containers in a single pod. This is useful when you want to run multiple servers that share the same base configuration (e.g., same Git repository, same template files) but differ in specific settings like ports and environment variables.
+
+**Architecture**: All instances run as separate containers within one pod, sharing:
+- The same network namespace (localhost communication is extremely fast)
+- The same storage volume (no duplication of downloaded files)
+- The same node resources
+
+Each instance gets its own isolated directory (`instance-<name>`) with a copy of the application files, allowing independent configuration.
+
+```yaml
+# Base configuration (shared across all instances)
+hostNetwork: true
+
+app:
+  download:
+    type: "GitRepo"
+    source: "https://github.com/HyzoFR/server-hub"
+    git:
+      branch: "main"
+
+  templateFiles:
+    - hostPath: "/var/templates/floor1.zip"
+      extractTo: "world"
+      overwrite: true
+
+  java:
+    version: "21"
+    args: "-Xmx2G -Xms2G -XX:+UseG1GC"
+
+  jarName: "folia.jar"
+
+service:
+  type: ClusterIP
+  protocol: TCP
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+# Multiple instances with different configurations
+instances:
+  - name: "hub-1"
+    service:
+      port: 25502
+    app:
+      configReplacements:
+        "server.properties":
+          "%SERVER_NAME%": "Hub-1"
+          "%SERVER_PORT%": "25502"
+    env:
+      - name: SERVER_ID
+        value: "1"
+
+  - name: "hub-2"
+    service:
+      port: 25503
+    app:
+      configReplacements:
+        "server.properties":
+          "%SERVER_NAME%": "Hub-2"
+          "%SERVER_PORT%": "25503"
+    env:
+      - name: SERVER_ID
+        value: "2"
+
+  - name: "hub-3"
+    service:
+      port: 25504
+    app:
+      configReplacements:
+        "server.properties":
+          "%SERVER_NAME%": "Hub-3"
+          "%SERVER_PORT%": "25504"
+    env:
+      - name: SERVER_ID
+        value: "3"
+```
+
+This will create **one pod** with 3 containers (`hub-1`, `hub-2`, `hub-3`), where:
+- All containers share the same downloaded Git repository and template files
+- Each container runs on a different port (25502, 25503, 25504)
+- Each container has its own configuration files in `/app/java-app-runner/instance-<name>/`
+- Each container has its own environment variables
+- All ports are exposed via a single service
+
+**Benefits:**
+- ✅ Extremely fast inter-server communication (localhost)
+- ✅ Shared storage - Git repo downloaded once, copied to each instance directory
+- ✅ Lower resource overhead compared to multiple pods
+- ✅ All servers start/stop together atomically
+- ✅ Works perfectly with `hostNetwork: true` - all ports exposed on host
+
+Each instance can override any base configuration:
+- `service.port`: Override the port for this instance (required)
+- `app.configReplacements`: Override or add config replacements
+- `env`: Set instance-specific environment variables
+- `resources`: Override resource limits for this container
+
+**Note:** When using `instances`, a single pod with multiple containers is created instead of the base deployment.
+
 ## Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `1` |
+| `hostNetwork` | Use host network for direct port exposure | `true` |
 | `image.repository` | Container image repository | `eclipse-temurin` |
 | `image.tag` | Container image tag | `21-jdk-alpine` |
 | `app.download.type` | Download type (GitRepo, GithubRelease, DownloadURL, None) | `""` |
@@ -138,10 +243,15 @@ This will:
 | `app.java.args` | JVM arguments | `""` |
 | `app.jarName` | JAR file name to run | `""` |
 | `app.jarOptions` | Options to pass to JAR | `""` |
-| `app.server.port` | Server port | `25565` |
+| `app.configReplacements` | Configuration file replacements | `{}` |
+| `app.templateFiles` | Template files to copy | `[]` |
 | `service.type` | Kubernetes service type | `ClusterIP` |
-| `persistence.enabled` | Enable persistent storage | `true` |
+| `service.port` | Service port | `25565` |
+| `service.protocol` | Service protocol (TCP, UDP, Both) | `TCP` |
+| `persistence.enabled` | Enable persistent storage | `false` |
+| `persistence.type` | Persistence type (pvc, hostPath) | `pvc` |
 | `persistence.size` | Storage size | `10Gi` |
+| `instances` | Array of instance configurations | `[]` |
 
 ## Upgrading
 

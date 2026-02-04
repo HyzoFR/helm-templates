@@ -19,47 +19,47 @@ app:
   download:
     type: ""  # Options: DownloadURL, GithubRelease, GitRepo, None
     source: ""  # Git repo URL, GitHub User/Repo, or Download URL
-    
+
     # Git repo specific settings
     git:
       branch: ""
       username: ""
       password: ""
-    
+
     # GitHub release specific settings
     github:
       filename: ""
       version: ""  # Empty = latest
-  
+
   # Java configuration
   java:
     version: "21"  # Eclipse Temurin version: 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 11, 8
     args: ""  # JVM arguments like -Xmx1024M -Xms1024M
-    
+
   # Application settings
   jarName: ""  # Name of the jar file to run
   jarOptions: ""  # Options to pass to the jar
   appDir: ""  # Subdirectory under root where app is installed
-  
+
   # Configuration replacements - replaces tokens in specific files after download
   # Format: file path as key, then key-value pairs for replacements in that file
   # File paths are relative to /app/java-app-runner (or appDir if specified)
-  configReplacements: {}
+  configReplacements: { }
     # Example:
     # "server.properties":
     #   "%SERVER_NAME%": "My Server"
     #   "%SERVER_PORT%": "25565"
     # "config/settings.yml":
     #   "%MAX_PLAYERS%": "100"
-    #   "%DIFFICULTY%": "hard"
+  #   "%DIFFICULTY%": "hard"
 
   # Template files to copy before running (optional)
   # Useful for copying world templates, default configs, etc.
-  templateFiles: []
+  templateFiles: [ ]
     # Example:
     # - hostPath: "/Users/username/templates/overworld.zip"  # Source zip file on host (read-only)
     #   extractTo: "world"  # Destination path relative to /app/java-app-runner (or appDir)
-    #   overwrite: false  # If true, always extract. If false, only extract if destination doesn't exist
+  #   overwrite: false  # If true, always extract. If false, only extract if destination doesn't exist
 
 # Service configuration
 service:
@@ -87,16 +87,47 @@ resources:
 #   hostPath: ""  # Only used when type is "hostPath", e.g., /Users/username/app/java-app-runner
 
 # Environment variables
-env: []
+env: [ ]
   # - name: EXAMPLE_VAR
-  #   value: "example_value"
+#   value: "example_value"
 
 # Node selector
-nodeSelector: {}
+nodeSelector: { }
 
 # Tolerations
-tolerations: []
+tolerations: [ ]
 
 # Affinity
-affinity: {}
+affinity: { }
 
+# Multiple instances configuration (optional)
+# When defined, creates multiple deployments with different configurations
+# Each instance inherits from the base configuration above but can override specific settings
+instances: [ ]
+  # Example:
+  # - name: "hub"
+  #   service:
+  #     port: 25502
+  #   app:
+  #     configReplacements:
+  #       "server.properties":
+  #         "%SERVER_NAME%": "Hub"
+  #         "%SERVER_PORT%": "25502"
+  #   env:
+  #     - name: SERVER_TYPE
+  #       value: "hub"
+  #   resources:
+  #     limits:
+  #       cpu: 2000m
+  #       memory: 4Gi
+  # - name: "lobby"
+  #   service:
+  #     port: 25503
+  #   app:
+  #     configReplacements:
+  #       "server.properties":
+  #         "%SERVER_NAME%": "Lobby"
+  #         "%SERVER_PORT%": "25503"
+  #   env:
+  #     - name: SERVER_TYPE
+#       value: "lobby"

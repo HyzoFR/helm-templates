@@ -1,4 +1,5 @@
-{{- if not .Values.instances }}
+{{- if .Values.instances }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -39,7 +40,7 @@ spec:
         - name: app-data
           mountPath: /app/java-app-runner
 
-      # Download Application
+      # Download Application (shared across all instances)
       {{- if ne .Values.app.download.type "None" }}
       - name: download-app
         image: alpine:latest
@@ -104,23 +105,6 @@ spec:
 
               git lfs pull
             fi
-
-            # Apply configuration replacements to specific files
-            {{- if .Values.app.configReplacements }}
-            echo "Applying configuration replacements to specific files..."
-            {{- range $filePath, $replacements := .Values.app.configReplacements }}
-            if [ -f "{{ $filePath }}" ]; then
-              echo "Processing file: {{ $filePath }}"
-              {{- range $search, $replace := $replacements }}
-              echo "  Replacing '{{ $search }}' with '{{ $replace }}'"
-              sed -i 's|{{ $search }}|{{ $replace }}|g' "{{ $filePath }}"
-              {{- end }}
-            else
-              echo "Warning: File not found: {{ $filePath }}"
-            fi
-            {{- end }}
-            echo "Configuration replacements applied"
-            {{- end }}
             {{- else if eq .Values.app.download.type "GithubRelease" }}
             # GitHub Release Download
             echo "Downloading from GitHub release..."
@@ -147,9 +131,8 @@ spec:
           mountPath: /app/java-app-runner
       {{- end }}
 
-      # Copy template files (optional)
-      {{- if .Values.app.templateFiles }}
-      - name: copy-templates
+      # Create instance directories and copy files
+      - name: setup-instances
         image: alpine:latest
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
@@ -158,78 +141,149 @@ spec:
           - |
             set -e
             apk add --no-cache unzip
-            cd /app/java-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
 
-            {{- range $index, $template := .Values.app.templateFiles }}
-            echo "Processing template {{ $index }}: {{ $template.hostPath }}"
+            cd /app/java-app-runner
+            echo "Base directory contents:"
+            ls -la
 
-            # Check if destination exists
-            {{- if $template.overwrite }}
-            echo "Overwrite enabled, extracting to {{ $template.extractTo }}..."
-            {{- else }}
-            if [ -e "{{ $template.extractTo }}" ]; then
-              echo "Destination {{ $template.extractTo }} already exists, skipping..."
-              {{- if ne (add1 $index) (len $.Values.app.templateFiles) }}
-              continue
-              {{- end }}
-            fi
-            echo "Destination {{ $template.extractTo }} does not exist, extracting..."
-            {{- end }}
+            {{- range $instance := .Values.instances }}
+            echo "Setting up instance directory for {{ $instance.name }}..."
+            mkdir -p instance-{{ $instance.name }}
 
-            # Copy and extract the template
+            # Copy all files from base directory to instance directory
+            echo "Copying files to instance-{{ $instance.name }}..."
+            for item in *; do
+              case "$item" in
+                instance-*)
+                  echo "  Skipping $item"
+                  ;;
+                *)
+                  if [ -e "$item" ]; then
+                    echo "  Copying $item"
+                    cp -r "$item" "instance-{{ $instance.name }}/"
+                  fi
+                  ;;
+              esac
+            done
+
+            # Copy hidden files
+            for item in .[!.]* ..?*; do
+              if [ -e "$item" ]; then
+                echo "  Copying hidden $item"
+                cp -r "$item" "instance-{{ $instance.name }}/" 2>/dev/null || true
+              fi
+            done
+
+            {{- if $.Values.app.templateFiles }}
+            # Extract templates to instance directory
+            cd /app/java-app-runner/instance-{{ $instance.name }}{{ if $.Values.app.appDir }}/{{ $.Values.app.appDir }}{{ end }}
+            {{- range $index, $template := $.Values.app.templateFiles }}
+            echo "Extracting template {{ $index }} to {{ $template.extractTo }} for {{ $instance.name }}..."
             if [ -f "/templates/template-{{ $index }}.zip" ]; then
               unzip -o "/templates/template-{{ $index }}.zip" -d "{{ $template.extractTo }}"
-              echo "Template extracted to {{ $template.extractTo }}"
+              echo "  Template extracted"
             else
-              echo "Error: Template file not found at /templates/template-{{ $index }}.zip"
+              echo "  Error: Template file not found"
               exit 1
             fi
             {{- end }}
+            cd /app/java-app-runner
+            {{- end }}
 
-            echo "All templates processed successfully"
+            echo "Instance {{ $instance.name }} setup complete"
+            echo "Contents of instance-{{ $instance.name }}:"
+            ls -la instance-{{ $instance.name }}
+            {{- end }}
+
+            echo "All instances setup complete"
         volumeMounts:
         - name: app-data
           mountPath: /app/java-app-runner
+        {{- if .Values.app.templateFiles }}
         {{- range $index, $template := .Values.app.templateFiles }}
         - name: template-{{ $index }}
           mountPath: /templates/template-{{ $index }}.zip
         {{- end }}
-      {{- end }}
+        {{- end }}
+
+
 
       containers:
-      - name: {{ .Chart.Name }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        workingDir: /app/java-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
+      {{- range $instanceIndex, $instance := .Values.instances }}
+      {{- $mergedService := merge ($instance.service | default dict) $.Values.service }}
+      {{- $mergedApp := merge ($instance.app | default dict) $.Values.app }}
+      {{- $mergedResources := merge ($instance.resources | default dict) $.Values.resources }}
+      {{- $mergedEnv := $instance.env | default list }}
+      - name: {{ $instance.name }}
+        image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        workingDir: /app/java-app-runner/instance-{{ $instance.name }}{{ if $mergedApp.appDir }}/{{ $mergedApp.appDir }}{{ end }}
         stdin: true
         tty: true
         command: ["/bin/sh"]
         args:
           - -c
           - |
+            # Install sed for config replacements
+            apk add --no-cache sed
+
+            cd /app/java-app-runner/instance-{{ $instance.name }}{{ if $mergedApp.appDir }}/{{ $mergedApp.appDir }}{{ end }}
+
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            ls -la
+
+            {{- $baseReplacements := $.Values.app.configReplacements | default dict }}
+            {{- $instanceReplacements := $instance.app.configReplacements | default dict }}
+            {{- if or $baseReplacements $instanceReplacements }}
+            # Apply configuration replacements
+            echo "Applying configuration replacements for {{ $instance.name }}..."
+            {{- $allReplacements := dict }}
+            {{- range $file, $replacements := $baseReplacements }}
+              {{- $_ := set $allReplacements $file $replacements }}
+            {{- end }}
+            {{- range $file, $replacements := $instanceReplacements }}
+              {{- if hasKey $allReplacements $file }}
+                {{- $_ := set $allReplacements $file (merge $replacements (index $allReplacements $file)) }}
+              {{- else }}
+                {{- $_ := set $allReplacements $file $replacements }}
+              {{- end }}
+            {{- end }}
+            {{- range $filePath, $replacements := $allReplacements }}
+            if [ -f "{{ $filePath }}" ]; then
+              echo "Processing file: {{ $filePath }}"
+              {{- range $search, $replace := $replacements }}
+              sed -i 's|{{ $search }}|{{ $replace }}|g' "{{ $filePath }}"
+              {{- end }}
+            else
+              echo "Warning: File not found: {{ $filePath }}"
+            fi
+            {{- end }}
+            echo "Configuration replacements applied"
+            {{- end }}
+
             # Use exec to replace shell with Java, making Java PID 1
-            # The tty and stdin settings allow attachment
-            # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)
-            exec java {{ .Values.app.java.args }} -jar {{ .Values.app.jarName }} {{ .Values.app.jarOptions }}
+            exec java {{ $mergedApp.java.args }} -jar {{ $mergedApp.jarName }} {{ $mergedApp.jarOptions }}
         ports:
-        - name: app-port
-          containerPort: {{ .Values.service.port }}
-          protocol: {{ .Values.service.protocol }}
+        - name: {{ $instance.name | trunc 15 | trimSuffix "-" }}
+          containerPort: {{ $mergedService.port }}
+          protocol: {{ $mergedService.protocol }}
         env:
-        {{- if .Values.hostNetwork }}
+        {{- if $.Values.hostNetwork }}
         - name: HOST_IP
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
         {{- end }}
-        {{- if .Values.env }}
-        {{- toYaml .Values.env | nindent 8 }}
+        {{- if $mergedEnv }}
+        {{- toYaml $mergedEnv | nindent 8 }}
         {{- end }}
         resources:
-          {{- toYaml .Values.resources | nindent 10 }}
+          {{- toYaml $mergedResources | nindent 10 }}
         volumeMounts:
         - name: app-data
           mountPath: /app/java-app-runner
+      {{- end }}
       {{- if .Values.debug.enabled }}
       # Debug sidecar container for shell access
       - name: debug

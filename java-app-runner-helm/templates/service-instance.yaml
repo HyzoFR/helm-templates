@@ -1,0 +1,22 @@
+{{- if .Values.instances }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "java-app-runner.fullname" . }}
+  labels:
+    {{- include "java-app-runner.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  {{- range $instance := .Values.instances }}
+  {{- $mergedService := merge ($instance.service | default dict) $.Values.service }}
+  - port: {{ $mergedService.port }}
+    targetPort: {{ $instance.name | trunc 15 | trimSuffix "-" }}
+    protocol: {{ $mergedService.protocol }}
+    name: {{ $instance.name | trunc 15 | trimSuffix "-" }}
+  {{- end }}
+  selector:
+    {{- include "java-app-runner.selectorLabels" . | nindent 4 }}
+{{- end }}
+
