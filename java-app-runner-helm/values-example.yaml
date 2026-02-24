@@ -49,9 +49,20 @@ app:
 
 # Expose the service
 service:
-  type: LoadBalancer
+  type: LoadBalancer # or ClusterIp
   port: 25565
   protocol: TCP
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: { }
+  hosts:
+    - host: dev.hyzo.fr
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: [ ]
 
 # Resource limits
 resources:
@@ -75,3 +86,31 @@ env:
   - name: TZ
     value: "UTC"
 
+instances: [ ]
+  # Example:
+  # - name: "hub"
+  #   service:
+  #     port: 25502
+  #   app:
+  #     configReplacements:
+  #       "server.properties":
+  #         "%SERVER_NAME%": "Hub"
+  #         "%SERVER_PORT%": "25502"
+  #   env:
+  #     - name: SERVER_TYPE
+  #       value: "hub"
+  #   resources:
+  #     limits:
+  #       cpu: 2000m
+  #       memory: 4Gi
+  # - name: "lobby"
+  #   service:
+  #     port: 25503
+  #   app:
+  #     configReplacements:
+#       "server.properties":
+#         "%SERVER_NAME%": "Lobby"
+#         "%SERVER_PORT%": "25503"
+#   env:
+#     - name: SERVER_TYPE
+#       value: "lobby"
