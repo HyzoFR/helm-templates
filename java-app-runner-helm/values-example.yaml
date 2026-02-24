@@ -64,6 +64,10 @@ ingress:
           pathType: Prefix
   tls: [ ]
 
+# Debug configuration
+debug:
+  enabled: false
+
 # Resource limits
 resources:
   limits:

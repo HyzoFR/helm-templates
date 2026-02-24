@@ -230,7 +230,7 @@ spec:
         volumeMounts:
         - name: app-data
           mountPath: /app/java-app-runner
-      {{- if .Values.debug.enabled }}
+      {{- if and .Values.debug .Values.debug.enabled }}
       # Debug sidecar container for shell access
       - name: debug
         image: alpine:latest
@@ -277,4 +277,3 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- end }}
-
