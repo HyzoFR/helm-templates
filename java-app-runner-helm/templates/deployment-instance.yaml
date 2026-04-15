@@ -174,16 +174,30 @@ spec:
               fi
             done
 
-            {{- if $.Values.app.templateFiles }}
-            # Extract templates to instance directory
+            {{- if and $instance.app $instance.app.templateFiles }}
+            # Extract instance-specific templates (overrides global)
             cd /app/java-app-runner/instance-{{ $instance.name }}{{ if $.Values.app.appDir }}/{{ $.Values.app.appDir }}{{ end }}
-            {{- range $index, $template := $.Values.app.templateFiles }}
-            echo "Extracting template {{ $index }} to {{ $template.extractTo }} for {{ $instance.name }}..."
-            if [ -f "/templates/template-{{ $index }}.zip" ]; then
-              unzip -o "/templates/template-{{ $index }}.zip" -d "{{ $template.extractTo }}"
+            {{- range $index, $template := $instance.app.templateFiles }}
+            echo "Extracting instance template {{ $index }} to {{ $template.extractTo }} for {{ $instance.name }}..."
+            if [ -f "/templates/{{ $instance.name }}-{{ $index }}.zip" ]; then
+              unzip -o "/templates/{{ $instance.name }}-{{ $index }}.zip" -d "{{ $template.extractTo }}"
               echo "  Template extracted"
             else
-              echo "  Error: Template file not found"
+              echo "  Error: Instance template file not found"
+              exit 1
+            fi
+            {{- end }}
+            cd /app/java-app-runner
+            {{- else if $.Values.app.templateFiles }}
+            # Extract global templates
+            cd /app/java-app-runner/instance-{{ $instance.name }}{{ if $.Values.app.appDir }}/{{ $.Values.app.appDir }}{{ end }}
+            {{- range $index, $template := $.Values.app.templateFiles }}
+            echo "Extracting global template {{ $index }} to {{ $template.extractTo }} for {{ $instance.name }}..."
+            if [ -f "/templates/global-{{ $index }}.zip" ]; then
+              unzip -o "/templates/global-{{ $index }}.zip" -d "{{ $template.extractTo }}"
+              echo "  Template extracted"
+            else
+              echo "  Error: Global template file not found"
               exit 1
             fi
             {{- end }}
@@ -201,8 +215,16 @@ spec:
           mountPath: /app/java-app-runner
         {{- if .Values.app.templateFiles }}
         {{- range $index, $template := .Values.app.templateFiles }}
-        - name: template-{{ $index }}
-          mountPath: /templates/template-{{ $index }}.zip
+        - name: template-global-{{ $index }}
+          mountPath: /templates/global-{{ $index }}.zip
+        {{- end }}
+        {{- end }}
+        {{- range $instance := .Values.instances }}
+        {{- if and $instance.app $instance.app.templateFiles }}
+        {{- range $index, $template := $instance.app.templateFiles }}
+        - name: template-{{ $instance.name }}-{{ $index }}
+          mountPath: /templates/{{ $instance.name }}-{{ $index }}.zip
+        {{- end }}
         {{- end }}
         {{- end }}
 
@@ -210,9 +232,9 @@ spec:
 
       containers:
       {{- range $instanceIndex, $instance := .Values.instances }}
-      {{- $mergedService := merge ($instance.service | default dict) $.Values.service }}
-      {{- $mergedApp := merge ($instance.app | default dict) $.Values.app }}
-      {{- $mergedResources := merge ($instance.resources | default dict) $.Values.resources }}
+      {{- $mergedService := merge (deepCopy ($instance.service | default dict)) $.Values.service }}
+      {{- $mergedApp := merge (deepCopy ($instance.app | default dict)) $.Values.app }}
+      {{- $mergedResources := merge (deepCopy ($instance.resources | default dict)) $.Values.resources }}
       {{- $mergedEnv := $instance.env | default list }}
       - name: {{ $instance.name }}
         image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
@@ -312,11 +334,23 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
+      {{- if .Values.app.templateFiles }}
       {{- range $index, $template := .Values.app.templateFiles }}
-      - name: template-{{ $index }}
+      - name: template-global-{{ $index }}
         hostPath:
           path: {{ $template.hostPath }}
           type: File
+      {{- end }}
+      {{- end }}
+      {{- range $instance := .Values.instances }}
+      {{- if and $instance.app $instance.app.templateFiles }}
+      {{- range $index, $template := $instance.app.templateFiles }}
+      - name: template-{{ $instance.name }}-{{ $index }}
+        hostPath:
+          path: {{ $template.hostPath }}
+          type: File
+      {{- end }}
+      {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
