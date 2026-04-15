@@ -53,17 +53,6 @@ service:
   port: 25565
   protocol: TCP
 
-ingress:
-  enabled: true
-  className: nginx
-  annotations: { }
-  hosts:
-    - host: dev.hyzo.fr
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: [ ]
-
 # Debug configuration
 debug:
   enabled: false
