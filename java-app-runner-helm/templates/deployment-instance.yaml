@@ -174,10 +174,10 @@ spec:
               fi
             done
 
-            {{- if and $instance.app $instance.app.templateFiles }}
+            {{- if $instance.templateFiles }}
             # Extract instance-specific templates (overrides global)
             cd /app/java-app-runner/instance-{{ $instance.name }}{{ if $.Values.app.appDir }}/{{ $.Values.app.appDir }}{{ end }}
-            {{- range $index, $template := $instance.app.templateFiles }}
+            {{- range $index, $template := $instance.templateFiles }}
             echo "Extracting instance template {{ $index }} to {{ $template.extractTo }} for {{ $instance.name }}..."
             if [ -f "/templates/{{ $instance.name }}-{{ $index }}.zip" ]; then
               unzip -o "/templates/{{ $instance.name }}-{{ $index }}.zip" -d "{{ $template.extractTo }}"
@@ -220,8 +220,8 @@ spec:
         {{- end }}
         {{- end }}
         {{- range $instance := .Values.instances }}
-        {{- if and $instance.app $instance.app.templateFiles }}
-        {{- range $index, $template := $instance.app.templateFiles }}
+        {{- if $instance.templateFiles }}
+        {{- range $index, $template := $instance.templateFiles }}
         - name: template-{{ $instance.name }}-{{ $index }}
           mountPath: /templates/{{ $instance.name }}-{{ $index }}.zip
         {{- end }}
@@ -343,8 +343,8 @@ spec:
       {{- end }}
       {{- end }}
       {{- range $instance := .Values.instances }}
-      {{- if and $instance.app $instance.app.templateFiles }}
-      {{- range $index, $template := $instance.app.templateFiles }}
+      {{- if $instance.templateFiles }}
+      {{- range $index, $template := $instance.templateFiles }}
       - name: template-{{ $instance.name }}-{{ $index }}
         hostPath:
           path: {{ $template.hostPath }}
