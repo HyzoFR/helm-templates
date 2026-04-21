@@ -153,6 +153,11 @@ spec:
             echo "Installing system build dependencies: {{ join " " .Values.app.rust.systemDeps }}"
             apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
             {{- end }}
+            {{- if and (or .Values.database.url .Values.database.existingSecret.name) .Values.database.writeEnvFile }}
+            echo "Writing .env file with DATABASE_URL"
+            printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env
+            chmod 600 .env
+            {{- end }}
             echo "Building Rust application..."
             {{- if .Values.app.rust.buildRelease }}
             cargo build --release {{ .Values.app.rust.buildArgs }}
