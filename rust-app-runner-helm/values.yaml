@@ -42,6 +42,13 @@ app:
     #   crates needing a C toolchain:
     #     ["build-base"]
     systemDeps: []
+    # When set, CARGO_HOME is exported in both build and runtime containers.
+    # Putting it inside the persisted volume (default mount /app/rust-app-runner)
+    # means the crates.io registry, downloaded .crate tarballs, and git-based
+    # deps survive pod restarts and helm upgrades, so subsequent builds skip
+    # downloads entirely. Leave empty to fall back to the image default
+    # (/usr/local/cargo in rust:alpine), which is ephemeral.
+    cargoHome: "/app/rust-app-runner/.cargo"
 
   # Application settings
   # The app is launched with: cargo run [--release] [buildArgs] [--bin binaryName] [-- binaryArgs]

@@ -166,8 +166,13 @@ spec:
             cargo build {{ .Values.app.rust.buildArgs }}
             echo "Rust application built successfully in debug mode"
             {{- end }}
-        {{- if or .Values.database.url .Values.database.existingSecret.name }}
+        {{- if or (or .Values.database.url .Values.database.existingSecret.name) .Values.app.rust.cargoHome }}
         env:
+        {{- if .Values.app.rust.cargoHome }}
+        - name: CARGO_HOME
+          value: {{ .Values.app.rust.cargoHome | quote }}
+        {{- end }}
+        {{- if or .Values.database.url .Values.database.existingSecret.name }}
         - name: DATABASE_URL
           {{- if .Values.database.existingSecret.name }}
           valueFrom:
@@ -177,6 +182,7 @@ spec:
           {{- else }}
           value: {{ .Values.database.url | quote }}
           {{- end }}
+        {{- end }}
         {{- end }}
         volumeMounts:
         - name: app-data
@@ -216,6 +222,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        {{- end }}
+        {{- if .Values.app.rust.cargoHome }}
+        - name: CARGO_HOME
+          value: {{ .Values.app.rust.cargoHome | quote }}
         {{- end }}
         {{- if or .Values.database.url .Values.database.existingSecret.name }}
         - name: DATABASE_URL
