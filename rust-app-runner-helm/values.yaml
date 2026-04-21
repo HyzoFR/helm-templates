@@ -33,12 +33,20 @@ app:
   
   # Rust configuration
   rust:
-    buildRelease: true  # Build in release mode (--release)
-    buildArgs: ""  # Additional cargo build arguments
-    
+    buildRelease: true  # Use release mode (--release) for both cargo build and cargo run
+    buildArgs: ""  # Additional cargo arguments (applied to both build and run, e.g. "-p api")
+    # Extra Alpine packages installed via `apk add --no-cache` in both the build
+    # and runtime containers before cargo is invoked. Typical sets:
+    #   crates using openssl-sys (reqwest, sqlx with tls, etc.):
+    #     ["pkgconfig", "openssl-dev", "musl-dev"]
+    #   crates needing a C toolchain:
+    #     ["build-base"]
+    systemDeps: []
+
   # Application settings
-  binaryName: ""  # Name of the binary to run (after building)
-  binaryArgs: ""  # Arguments to pass to the binary
+  # The app is launched with: cargo run [--release] [buildArgs] [--bin binaryName] [-- binaryArgs]
+  binaryName: ""  # Passed as `--bin <name>` to cargo run (leave empty if the crate has a single bin)
+  binaryArgs: ""  # Arguments passed to the binary (after `--`)
   appDir: ""  # Subdirectory under root where app is installed
   
   # Configuration replacements - replaces tokens in ALL files after download
@@ -74,6 +82,24 @@ resources:
 #   size: 10Gi
 #   mountPath: /app/rust-app-runner
 #   hostPath: ""  # Only used when type is "hostPath", e.g., /Users/username/app/rust-app-runner
+
+# Database configuration
+# Injected as DATABASE_URL into both the build container (for sqlx compile-time checks)
+# and the runtime container. Leave url empty to disable.
+database:
+  url: ""  # e.g. "postgres://user:password@host:5432/dbname"
+  # Optionally source DATABASE_URL from an existing secret instead of url above.
+  # When existingSecret.name is set, it takes precedence over url.
+  existingSecret:
+    name: ""
+    key: "DATABASE_URL"
+  # Optionally mount a host directory containing a Postgres Unix socket into the
+  # pod. The directory is mounted at the SAME path inside both the build and
+  # runtime containers, so a URL like:
+  #   postgres://user:pass@localhost/db?host=/path/to/socketdir
+  # works unchanged. Useful on OrbStack/Docker Desktop to reach a Postgres
+  # running on macOS over its Unix socket.
+  socketHostPath: ""  # e.g. "/Users/you/.dev_postgres/data"
 
 # Environment variables
 env: []

@@ -149,6 +149,10 @@ spec:
           - -c
           - |
             set -e
+            {{- if .Values.app.rust.systemDeps }}
+            echo "Installing system build dependencies: {{ join " " .Values.app.rust.systemDeps }}"
+            apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
+            {{- end }}
             echo "Building Rust application..."
             {{- if .Values.app.rust.buildRelease }}
             cargo build --release {{ .Values.app.rust.buildArgs }}
@@ -157,9 +161,25 @@ spec:
             cargo build {{ .Values.app.rust.buildArgs }}
             echo "Rust application built successfully in debug mode"
             {{- end }}
+        {{- if or .Values.database.url .Values.database.existingSecret.name }}
+        env:
+        - name: DATABASE_URL
+          {{- if .Values.database.existingSecret.name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.existingSecret.name }}
+              key: {{ .Values.database.existingSecret.key }}
+          {{- else }}
+          value: {{ .Values.database.url | quote }}
+          {{- end }}
+        {{- end }}
         volumeMounts:
         - name: app-data
           mountPath: /app/rust-app-runner
+        {{- if .Values.database.socketHostPath }}
+        - name: db-socket
+          mountPath: {{ .Values.database.socketHostPath }}
+        {{- end }}
 
       containers:
       - name: {{ .Chart.Name }}
@@ -172,14 +192,15 @@ spec:
         args:
           - -c
           - |
-            # Use exec to replace shell with the binary, making it PID 1
+            set -e
+            {{- if .Values.app.rust.systemDeps }}
+            echo "Installing system runtime dependencies: {{ join " " .Values.app.rust.systemDeps }}"
+            apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
+            {{- end }}
+            # Use exec to replace shell with cargo run, making it PID 1
             # The tty and stdin settings allow attachment
             # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)
-            {{- if .Values.app.rust.buildRelease }}
-            exec ./target/release/{{ .Values.app.binaryName }} {{ .Values.app.binaryArgs }}
-            {{- else }}
-            exec ./target/debug/{{ .Values.app.binaryName }} {{ .Values.app.binaryArgs }}
-            {{- end }}
+            exec cargo run {{ if .Values.app.rust.buildRelease }}--release {{ end }}{{ .Values.app.rust.buildArgs }}{{ if .Values.app.binaryName }} --bin {{ .Values.app.binaryName }}{{ end }}{{ if .Values.app.binaryArgs }} -- {{ .Values.app.binaryArgs }}{{ end }}
         ports:
         - name: app-port
           containerPort: {{ .Values.service.port }}
@@ -191,6 +212,17 @@ spec:
             fieldRef:
               fieldPath: status.hostIP
         {{- end }}
+        {{- if or .Values.database.url .Values.database.existingSecret.name }}
+        - name: DATABASE_URL
+          {{- if .Values.database.existingSecret.name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.existingSecret.name }}
+              key: {{ .Values.database.existingSecret.key }}
+          {{- else }}
+          value: {{ .Values.database.url | quote }}
+          {{- end }}
+        {{- end }}
         {{- if .Values.env }}
         {{- toYaml .Values.env | nindent 8 }}
         {{- end }}
@@ -199,6 +231,10 @@ spec:
         volumeMounts:
         - name: app-data
           mountPath: /app/rust-app-runner
+        {{- if .Values.database.socketHostPath }}
+        - name: db-socket
+          mountPath: {{ .Values.database.socketHostPath }}
+        {{- end }}
       {{- if .Values.debug.enabled }}
       # Debug sidecar container for shell access
       - name: debug
@@ -227,6 +263,12 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
+      {{- if .Values.database.socketHostPath }}
+      - name: db-socket
+        hostPath:
+          path: {{ .Values.database.socketHostPath }}
+          type: Directory
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
