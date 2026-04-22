@@ -23,266 +23,266 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
       initContainers:
-      # Setup dependencies
-      - name: setup-dependencies
-        image: alpine:latest
-        imagePullPolicy: IfNotPresent
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            set -e
-            apk add --no-cache git wget unzip curl bash
-            echo "Dependencies installed successfully"
-        volumeMounts:
-        - name: app-data
-          mountPath: /app/rust-app-runner
+        # Setup dependencies
+        - name: setup-dependencies
+          image: alpine:latest
+          imagePullPolicy: IfNotPresent
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              set -e
+              apk add --no-cache git wget unzip curl bash
+              echo "Dependencies installed successfully"
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/rust-app-runner
 
-      # Download Application
+        # Download Application
       {{- if ne .Values.app.download.type "None" }}
-      - name: download-app
-        image: alpine:latest
-        imagePullPolicy: IfNotPresent
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            set -e
-            apk add --no-cache git git-lfs wget unzip curl bash
-            cd /app/rust-app-runner
+        - name: download-app
+          image: alpine:latest
+          imagePullPolicy: IfNotPresent
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              set -e
+              apk add --no-cache git git-lfs wget unzip curl bash
+              cd /app/rust-app-runner
 
             {{- if eq .Values.app.download.type "GitRepo" }}
-            # Git Repository Download
-            if [ ! -d .git ]; then
-              echo "Cloning Git repository..."
+              # Git Repository Download
+              if [ ! -d .git ]; then
+                echo "Cloning Git repository..."
               {{- if .Values.app.download.git.password }}
               {{- if .Values.app.download.git.username }}
-              DOWNLOAD_URL="{{ .Values.app.download.source }}"
-              DOWNLOAD_URL="${DOWNLOAD_URL/https:\/\//https://{{ .Values.app.download.git.username }}:{{ .Values.app.download.git.password }}@}"
+                DOWNLOAD_URL="{{ .Values.app.download.source }}"
+                DOWNLOAD_URL="${DOWNLOAD_URL/https:\/\//https://{{ .Values.app.download.git.username }}:{{ .Values.app.download.git.password }}@}"
               {{- else }}
-              DOWNLOAD_URL="{{ .Values.app.download.source }}"
-              DOWNLOAD_URL="${DOWNLOAD_URL/https:\/\//https://{{ .Values.app.download.git.password }}@}"
+                DOWNLOAD_URL="{{ .Values.app.download.source }}"
+                DOWNLOAD_URL="${DOWNLOAD_URL/https:\/\//https://{{ .Values.app.download.git.password }}@}"
               {{- end }}
               {{- else }}
-              DOWNLOAD_URL="{{ .Values.app.download.source }}"
+                DOWNLOAD_URL="{{ .Values.app.download.source }}"
               {{- end }}
 
-              # Initialize Git LFS
-              git lfs install
+                # Initialize Git LFS
+                git lfs install
 
               {{- if .Values.app.download.git.branch }}
-              # Clone specific branch
-              git clone -b {{ .Values.app.download.git.branch }} "$DOWNLOAD_URL" srv
+                # Clone specific branch
+                git clone -b {{ .Values.app.download.git.branch }} "$DOWNLOAD_URL" srv
               {{- else }}
-              # Clone default branch
-              git clone "$DOWNLOAD_URL" srv
+                # Clone default branch
+                git clone "$DOWNLOAD_URL" srv
               {{- end }}
 
-              cd srv
+                cd srv
 
-              # Pull LFS files
-              git lfs pull
+                # Pull LFS files
+                git lfs pull
 
-              cd ..
-              cp -r srv/. ./
-              rm -rf srv
-              echo "Git repository cloned successfully (with LFS files)"
-            else
-              echo "Git repository already exists, pulling latest changes..."
-              git lfs install
+                cd ..
+                cp -r srv/. ./
+                rm -rf srv
+                echo "Git repository cloned successfully (with LFS files)"
+              else
+                echo "Git repository already exists, pulling latest changes..."
+                git lfs install
 
               {{- if .Values.app.download.git.branch }}
-              # Checkout specified branch
-              git fetch origin
-              git checkout {{ .Values.app.download.git.branch }} --force
-              git pull origin {{ .Values.app.download.git.branch }}
+                # Checkout specified branch
+                git fetch origin
+                git checkout {{ .Values.app.download.git.branch }} --force
+                git pull origin {{ .Values.app.download.git.branch }}
               {{- else }}
-              # Pull default branch
-              git pull
+                # Pull default branch
+                git pull
               {{- end }}
 
-              git lfs pull
-            fi
+                git lfs pull
+              fi
 
-            # Apply configuration replacements to all files
+              # Apply configuration replacements to all files
             {{- if .Values.app.configReplacements }}
-            echo "Applying configuration replacements to all files..."
+              echo "Applying configuration replacements to all files..."
             {{- range $search, $replace := .Values.app.configReplacements }}
-            echo "Replacing '{{ $search }}' with '{{ $replace }}'"
-            find . -type f ! -path './.git/*' -exec sed -i 's|{{ $search }}|{{ $replace }}|g' {} + 2>/dev/null || true
+              echo "Replacing '{{ $search }}' with '{{ $replace }}'"
+              find . -type f ! -path './.git/*' -exec perl -pi -e 's/\Q{{ $search }}\E/{{ $replace }}/g' {} + 2>/dev/null || true
             {{- end }}
-            echo "Configuration replacements applied"
+              echo "Configuration replacements applied"
             {{- end }}
             {{- else if eq .Values.app.download.type "GithubRelease" }}
-            # GitHub Release Download
-            echo "Downloading from GitHub release..."
+              # GitHub Release Download
+              echo "Downloading from GitHub release..."
             {{- if .Values.app.download.github.version }}
-            RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/download/{{ .Values.app.download.github.version }}/{{ .Values.app.download.github.filename }}"
+              RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/download/{{ .Values.app.download.github.version }}/{{ .Values.app.download.github.filename }}"
             {{- else }}
-            RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/latest/download/{{ .Values.app.download.github.filename }}"
+              RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/latest/download/{{ .Values.app.download.github.filename }}"
             {{- end }}
 
-            wget -O app-download.zip "$RELEASE_URL"
-            unzip -o app-download.zip
-            rm -f app-download.zip
-            echo "GitHub release downloaded successfully"
+              wget -O app-download.zip "$RELEASE_URL"
+              unzip -o app-download.zip
+              rm -f app-download.zip
+              echo "GitHub release downloaded successfully"
             {{- else if eq .Values.app.download.type "DownloadURL" }}
-            # Direct URL Download
-            echo "Downloading from URL..."
-            wget -O app-download.zip "{{ .Values.app.download.source }}"
-            unzip -o app-download.zip
-            rm -f app-download.zip
-            echo "Application downloaded successfully"
+              # Direct URL Download
+              echo "Downloading from URL..."
+              wget -O app-download.zip "{{ .Values.app.download.source }}"
+              unzip -o app-download.zip
+              rm -f app-download.zip
+              echo "Application downloaded successfully"
             {{- end }}
-        volumeMounts:
-        - name: app-data
-          mountPath: /app/rust-app-runner
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/rust-app-runner
       {{- end }}
 
-      # Build Rust Application
-      - name: build-app
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        workingDir: /app/rust-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            set -e
+        # Build Rust Application
+        - name: build-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          workingDir: /app/rust-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              set -e
             {{- if .Values.app.rust.systemDeps }}
-            echo "Installing system build dependencies: {{ join " " .Values.app.rust.systemDeps }}"
-            apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
+              echo "Installing system build dependencies: {{ join " " .Values.app.rust.systemDeps }}"
+              apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
             {{- end }}
             {{- if and (or .Values.database.url .Values.database.existingSecret.name) .Values.database.writeEnvFile }}
-            echo "Writing .env file with DATABASE_URL"
-            printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env
-            chmod 600 .env
+              echo "Writing .env file with DATABASE_URL"
+              printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env
+              chmod 600 .env
             {{- end }}
-            echo "Building Rust application..."
+              echo "Building Rust application..."
             {{- if .Values.app.rust.buildRelease }}
-            cargo build --release {{ .Values.app.rust.buildArgs }}
-            echo "Rust application built successfully in release mode"
+              cargo build --release {{ .Values.app.rust.buildArgs }}
+              echo "Rust application built successfully in release mode"
             {{- else }}
-            cargo build {{ .Values.app.rust.buildArgs }}
-            echo "Rust application built successfully in debug mode"
+              cargo build {{ .Values.app.rust.buildArgs }}
+              echo "Rust application built successfully in debug mode"
             {{- end }}
         {{- if or (or .Values.database.url .Values.database.existingSecret.name) .Values.app.rust.cargoHome }}
-        env:
+          env:
         {{- if .Values.app.rust.cargoHome }}
-        - name: CARGO_HOME
-          value: {{ .Values.app.rust.cargoHome | quote }}
+            - name: CARGO_HOME
+              value: {{ .Values.app.rust.cargoHome | quote }}
         {{- end }}
         {{- if or .Values.database.url .Values.database.existingSecret.name }}
-        - name: DATABASE_URL
+            - name: DATABASE_URL
           {{- if .Values.database.existingSecret.name }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.database.existingSecret.name }}
-              key: {{ .Values.database.existingSecret.key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret.name }}
+                  key: {{ .Values.database.existingSecret.key }}
           {{- else }}
-          value: {{ .Values.database.url | quote }}
+              value: {{ .Values.database.url | quote }}
           {{- end }}
         {{- end }}
         {{- end }}
-        volumeMounts:
-        - name: app-data
-          mountPath: /app/rust-app-runner
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/rust-app-runner
         {{- if .Values.database.socketHostPath }}
-        - name: db-socket
-          mountPath: {{ .Values.database.socketHostPath }}
+            - name: db-socket
+              mountPath: {{ .Values.database.socketHostPath }}
         {{- end }}
 
       containers:
-      - name: {{ .Chart.Name }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        workingDir: /app/rust-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
-        stdin: true
-        tty: true
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            set -e
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          workingDir: /app/rust-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
+          stdin: true
+          tty: true
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              set -e
             {{- if .Values.app.rust.systemDeps }}
-            echo "Installing system runtime dependencies: {{ join " " .Values.app.rust.systemDeps }}"
-            apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
+              echo "Installing system runtime dependencies: {{ join " " .Values.app.rust.systemDeps }}"
+              apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
             {{- end }}
-            # Use exec to replace shell with cargo run, making it PID 1
-            # The tty and stdin settings allow attachment
-            # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)
-            exec cargo run {{ if .Values.app.rust.buildRelease }}--release {{ end }}{{ .Values.app.rust.buildArgs }}{{ if .Values.app.binaryName }} --bin {{ .Values.app.binaryName }}{{ end }}{{ if .Values.app.binaryArgs }} -- {{ .Values.app.binaryArgs }}{{ end }}
-        ports:
-        - name: app-port
-          containerPort: {{ .Values.service.port }}
-          protocol: {{ .Values.service.protocol }}
-        env:
+              # Use exec to replace shell with cargo run, making it PID 1
+              # The tty and stdin settings allow attachment
+              # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)
+              exec cargo run {{ if .Values.app.rust.buildRelease }}--release {{ end }}{{ .Values.app.rust.buildArgs }}{{ if .Values.app.binaryName }} --bin {{ .Values.app.binaryName }}{{ end }}{{ if .Values.app.binaryArgs }} -- {{ .Values.app.binaryArgs }}{{ end }}
+          ports:
+            - name: app-port
+              containerPort: {{ .Values.service.port }}
+              protocol: {{ .Values.service.protocol }}
+          env:
         {{- if .Values.hostNetwork }}
-        - name: HOST_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
         {{- end }}
         {{- if .Values.app.rust.cargoHome }}
-        - name: CARGO_HOME
-          value: {{ .Values.app.rust.cargoHome | quote }}
+            - name: CARGO_HOME
+              value: {{ .Values.app.rust.cargoHome | quote }}
         {{- end }}
         {{- if or .Values.database.url .Values.database.existingSecret.name }}
-        - name: DATABASE_URL
+            - name: DATABASE_URL
           {{- if .Values.database.existingSecret.name }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.database.existingSecret.name }}
-              key: {{ .Values.database.existingSecret.key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret.name }}
+                  key: {{ .Values.database.existingSecret.key }}
           {{- else }}
-          value: {{ .Values.database.url | quote }}
+              value: {{ .Values.database.url | quote }}
           {{- end }}
         {{- end }}
         {{- if .Values.env }}
         {{- toYaml .Values.env | nindent 8 }}
         {{- end }}
-        resources:
+          resources:
           {{- toYaml .Values.resources | nindent 10 }}
-        volumeMounts:
-        - name: app-data
-          mountPath: /app/rust-app-runner
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/rust-app-runner
         {{- if .Values.database.socketHostPath }}
-        - name: db-socket
-          mountPath: {{ .Values.database.socketHostPath }}
+            - name: db-socket
+              mountPath: {{ .Values.database.socketHostPath }}
         {{- end }}
       {{- if .Values.debug.enabled }}
-      # Debug sidecar container for shell access
-      - name: debug
-        image: alpine:latest
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            echo "Debug sidecar started. You can exec into this container for debugging."
-            tail -f /dev/null
-        volumeMounts:
-        - name: app-data
-          mountPath: /app/rust-app-runner
+        # Debug sidecar container for shell access
+        - name: debug
+          image: alpine:latest
+          command: [ "/bin/sh" ]
+          args:
+            - -c
+            - |
+              echo "Debug sidecar started. You can exec into this container for debugging."
+              tail -f /dev/null
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/rust-app-runner
       {{- end }}
       volumes:
-      - name: app-data
+        - name: app-data
         {{- if and .Values.persistence .Values.persistence.enabled }}
         {{- if eq .Values.persistence.type "hostPath" }}
-        hostPath:
-          path: {{ .Values.persistence.hostPath }}
-          type: DirectoryOrCreate
+          hostPath:
+            path: {{ .Values.persistence.hostPath }}
+            type: DirectoryOrCreate
         {{- else }}
-        persistentVolumeClaim:
-          claimName: {{ include "rust-app-runner.fullname" . }}
+          persistentVolumeClaim:
+            claimName: {{ include "rust-app-runner.fullname" . }}
         {{- end }}
         {{- else }}
-        emptyDir: {}
+          emptyDir: { }
         {{- end }}
       {{- if .Values.database.socketHostPath }}
-      - name: db-socket
-        hostPath:
-          path: {{ .Values.database.socketHostPath }}
-          type: Directory
+        - name: db-socket
+          hostPath:
+            path: {{ .Values.database.socketHostPath }}
+            type: Directory
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
