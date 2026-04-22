@@ -223,10 +223,10 @@ spec:
                   fieldPath: status.hostIP
         {{- end }}
         {{- if .Values.env }}
-        {{- toYaml .Values.env | nindent 8 }}
+            {{- toYaml .Values.env | nindent 12 }}
         {{- end }}
           resources:
-          {{- toYaml .Values.resources | nindent 10 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: app-data
               mountPath: /app/java-app-runner
