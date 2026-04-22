@@ -107,17 +107,25 @@ spec:
 
             # Apply configuration replacements to specific files
             {{- if .Values.app.configReplacements }}
-            echo "Applying configuration replacements to specific files..."
+              echo "Applying configuration replacements to specific files..."
             {{- range $filePath, $replacements := .Values.app.configReplacements }}
-            if [ -f "{{ $filePath }}" ]; then
-              echo "Processing file: {{ $filePath }}"
+              if [ -f "{{ $filePath }}" ]; then
+            echo "Processing file: {{ $filePath }}"
+
               {{- range $search, $replace := $replacements }}
               echo "  Replacing '{{ $search }}' with '{{ $replace }}'"
-              sed -i 's|{{ $search }}|{{ $replace }}|g' "{{ $filePath }}"
+
+              search='{{ $search }}'
+              replace='{{ $replace }}'
+
+              perl -pi -e "s/\Q$search\E/$replace/g" "{{ $filePath }}"
               {{- end }}
-            else
-              echo "Warning: File not found: {{ $filePath }}"
+
+              else
+            echo "Warning: File not found: {{ $filePath }}"
             fi
+            {{- end }}
+            {{- end }}
             {{- end }}
             echo "Configuration replacements applied"
             {{- end }}
