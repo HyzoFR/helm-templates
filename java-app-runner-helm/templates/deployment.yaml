@@ -123,8 +123,7 @@ spec:
               {{- end }}
 
               else
-              echo "Warning:
-              File not found: {{ $filePath }}"
+              echo "Warning: File not found: {{ $filePath }}"
             fi
             {{- end }}
             echo "Configuration replacements applied"
