@@ -126,7 +126,6 @@ spec:
             fi
             {{- end }}
             {{- end }}
-            {{- end }}
             echo "Configuration replacements applied"
             {{- end }}
             {{- else if eq .Values.app.download.type "GithubRelease" }}
