@@ -106,41 +106,49 @@ spec:
               fi
 
               # Apply configuration replacements to specific files
+              # Apply configuration replacements to specific files
             {{- if .Values.app.configReplacements }}
               echo "Applying configuration replacements to specific files..."
             {{- range $filePath, $replacements := .Values.app.configReplacements }}
               if [ -f "{{ $filePath }}" ]; then
-                echo "Processing file: {{ $filePath }}"
+              echo "Processing file: {{ $filePath }}"
+
               {{- range $search, $replace := $replacements }}
-                echo "  Replacing '{{ $search }}' with '{{ $replace }}'"
-                sed -i 's|{{ $search }}|{{ $replace }}|g' "{{ $filePath }}"
+              echo "  Replacing '{{ $search }}' with '{{ $replace }}'"
+
+              search='{{ $search }}'
+              replace='{{ $replace }}'
+
+              perl -pi -e "s/\Q$search\E/$replace/g" "{{ $filePath }}"
               {{- end }}
+
               else
-                echo "Warning: File not found: {{ $filePath }}"
-              fi
+              echo "Warning:
+              File not found: {{ $filePath }}"
+            fi
             {{- end }}
-              echo "Configuration replacements applied"
+            echo "Configuration replacements applied"
             {{- end }}
             {{- else if eq .Values.app.download.type "GithubRelease" }}
-              # GitHub Release Download
-              echo "Downloading from GitHub release..."
+            # GitHub Release Download
+            echo "Downloading from GitHub release..."
             {{- if .Values.app.download.github.version }}
-              RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/download/{{ .Values.app.download.github.version }}/{{ .Values.app.download.github.filename }}"
+            RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/download/{{ .Values.app.download.github.version }}/{{ .Values.app.download.github.filename }}"
             {{- else }}
-              RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/latest/download/{{ .Values.app.download.github.filename }}"
+            RELEASE_URL="https://github.com/{{ .Values.app.download.source }}/releases/latest/download/{{ .Values.app.download.github.filename }}"
             {{- end }}
 
-              wget -O app-download.zip "$RELEASE_URL"
-              unzip -o app-download.zip
-              rm -f app-download.zip
-              echo "GitHub release downloaded successfully"
+            wget -O app-download.zip "$RELEASE_URL"
+            unzip -o app-download.zip
+            rm -f app-download.zip
+            echo "GitHub release downloaded successfully"
             {{- else if eq .Values.app.download.type "DownloadURL" }}
-              # Direct URL Download
-              echo "Downloading from URL..."
-              wget -O app-download.zip "{{ .Values.app.download.source }}"
-              unzip -o app-download.zip
-              rm -f app-download.zip
-              echo "Application downloaded successfully"
+            # Direct URL Download
+            echo "Downloading from URL..."
+            wget -O app-download.zip "{{ .Values.app.download.source }}"
+            unzip -o app-download.zip
+            rm -f app-download.zip
+            echo "Application downloaded successfully"
             {{- end }}
           volumeMounts:
             - name: app-data
