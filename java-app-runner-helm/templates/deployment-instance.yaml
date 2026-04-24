@@ -131,6 +131,26 @@ spec:
           mountPath: /app/java-app-runner
       {{- end }}
 
+      # Paperclip prepatch (download Mojang jar + apply patches, then exit)
+      # Runs before instance setup so the patched jar and cache get copied into each instance.
+      {{- if and .Values.app.paperclip .Values.app.paperclip.prepatch }}
+      - name: paperclip-prepatch
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        workingDir: /app/java-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            set -e
+            echo "Running Paperclip prepatch (download Mojang jar + apply patches)..."
+            java {{ .Values.app.paperclip.jvmArgs | default "" }} -Dpaperclip.patchonly=true -jar {{ .Values.app.jarName }}
+            echo "Paperclip prepatch complete"
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/java-app-runner
+      {{- end }}
+
       # Create instance directories and copy files
       - name: setup-instances
         image: alpine:latest

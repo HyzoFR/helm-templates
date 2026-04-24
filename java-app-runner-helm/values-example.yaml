@@ -28,6 +28,13 @@ app:
   jarOptions: "nogui"
   appDir: ""  # Subdirectory if needed
 
+  # Paperclip (Paper/Folia) prepatch: runs `-Dpaperclip.patchonly=true` in an init
+  # container to download the Mojang jar and apply patches before the main
+  # container starts. Leave disabled for non-Paper jars.
+  paperclip:
+    prepatch: false
+    jvmArgs: ""  # Optional JVM flags for the prepatch step (e.g. "-Xmx1G")
+
   # Configuration replacements - replaces tokens in specific files
   configReplacements:
     "server.properties":
