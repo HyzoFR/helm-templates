@@ -149,9 +149,6 @@ spec:
             - -c
             - |
               set -e
-            {{- if .Values.app.rust.cargoHome }}
-              export PATH="{{ .Values.app.rust.cargoHome }}/bin:$PATH"
-            {{- end }}
             {{- if .Values.app.rust.systemDeps }}
               echo "Installing system build dependencies: {{ join " " .Values.app.rust.systemDeps }}"
               apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
@@ -178,6 +175,8 @@ spec:
         {{- if .Values.app.rust.cargoHome }}
             - name: CARGO_HOME
               value: {{ .Values.app.rust.cargoHome | quote }}
+            - name: PATH
+              value: "{{ .Values.app.rust.cargoHome }}/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         {{- end }}
         {{- if or .Values.database.url .Values.database.existingSecret.name }}
             - name: DATABASE_URL
@@ -211,9 +210,6 @@ spec:
             - -c
             - |
               set -e
-            {{- if .Values.app.rust.cargoHome }}
-              export PATH="{{ .Values.app.rust.cargoHome }}/bin:$PATH"
-            {{- end }}
             {{- if .Values.app.rust.systemDeps }}
               echo "Installing system runtime dependencies: {{ join " " .Values.app.rust.systemDeps }}"
               apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
@@ -236,6 +232,8 @@ spec:
         {{- if .Values.app.rust.cargoHome }}
             - name: CARGO_HOME
               value: {{ .Values.app.rust.cargoHome | quote }}
+            - name: PATH
+              value: "{{ .Values.app.rust.cargoHome }}/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         {{- end }}
         {{- if or .Values.database.url .Values.database.existingSecret.name }}
             - name: DATABASE_URL
