@@ -149,9 +149,16 @@ spec:
             - -c
             - |
               set -e
+            {{- if .Values.app.rust.cargoHome }}
+              export PATH="{{ .Values.app.rust.cargoHome }}/bin:$PATH"
+            {{- end }}
             {{- if .Values.app.rust.systemDeps }}
               echo "Installing system build dependencies: {{ join " " .Values.app.rust.systemDeps }}"
               apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}
+            {{- end }}
+            {{- range .Values.app.rust.cargoInstall }}
+              echo "cargo install {{ . }}"
+              cargo install {{ . }}
             {{- end }}
             {{- if and (or .Values.database.url .Values.database.existingSecret.name) .Values.database.writeEnvFile }}
               echo "Writing .env file with DATABASE_URL"
@@ -204,6 +211,9 @@ spec:
             - -c
             - |
               set -e
+            {{- if .Values.app.rust.cargoHome }}
+              export PATH="{{ .Values.app.rust.cargoHome }}/bin:$PATH"
+            {{- end }}
             {{- if .Values.app.rust.systemDeps }}
               echo "Installing system runtime dependencies: {{ join " " .Values.app.rust.systemDeps }}"
               apk add --no-cache {{ join " " .Values.app.rust.systemDeps }}

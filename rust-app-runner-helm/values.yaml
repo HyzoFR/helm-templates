@@ -49,6 +49,14 @@ app:
     # downloads entirely. Leave empty to fall back to the image default
     # (/usr/local/cargo in rust:alpine), which is ephemeral.
     cargoHome: "/app/rust-app-runner/.cargo"
+    # Extra cargo binaries to `cargo install` before `cargo build` runs. Each
+    # entry is appended verbatim to `cargo install`, so flags can be included
+    # inline, e.g. "sqlx-cli --no-default-features --features rustls,postgres".
+    # Binaries are placed in $CARGO_HOME/bin, which is prepended to PATH in
+    # both the build and runtime containers so tools like sqlx-cli are usable
+    # at runtime (e.g. for migrations). When cargoHome points inside the
+    # persisted volume, installs survive pod restarts.
+    cargoInstall: []
 
   # Application settings
   # The app is launched with: cargo run [--release] [buildArgs] [--bin binaryName] [-- binaryArgs]
