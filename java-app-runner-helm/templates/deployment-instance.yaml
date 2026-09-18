@@ -273,7 +273,17 @@ spec:
 
             echo "Current directory: $(pwd)"
             echo "Directory contents:"
-            ls -la
+            {{- $baseFiles := $.Values.app.files | default dict }}
+            {{- $instanceFiles := $instance.app.files | default dict }}
+            {{- $allFiles := merge (deepCopy $instanceFiles) $baseFiles }}
+            {{- if $allFiles }}
+            # Write custom files defined in values
+            {{- range $filePath, $content := $allFiles }}
+            echo "Writing file: {{ $filePath }}"
+            mkdir -p "$(dirname "{{ $filePath }}")"
+            printf '%s\n' '{{ $content }}' > "{{ $filePath }}"
+            {{- end }}
+            {{- end }}
 
             {{- $baseReplacements := $.Values.app.configReplacements | default dict }}
             {{- $instanceReplacements := $instance.app.configReplacements | default dict }}
