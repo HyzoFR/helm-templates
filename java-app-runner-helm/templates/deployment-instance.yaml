@@ -34,7 +34,7 @@ spec:
           - -c
           - |
             set -e
-            apk add --no-cache git wget unzip curl bash
+            apk add --no-cache git wget unzip curl bash || true
             echo "Dependencies installed successfully"
         volumeMounts:
         - name: app-data
@@ -160,7 +160,7 @@ spec:
           - -c
           - |
             set -e
-            apk add --no-cache unzip
+            apk add --no-cache unzip || true
 
             cd /app/java-app-runner
             echo "Base directory contents:"
@@ -267,7 +267,7 @@ spec:
           - -c
           - |
             # Install sed for config replacements
-            apk add --no-cache sed
+            which sed >/dev/null 2>&1 || apk add --no-cache sed || true
 
             cd /app/java-app-runner/instance-{{ $instance.name }}{{ if $mergedApp.appDir }}/{{ $mergedApp.appDir }}{{ end }}
 

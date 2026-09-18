@@ -33,7 +33,7 @@ spec:
             - -c
             - |
               set -e
-              apk add --no-cache git wget unzip curl bash
+              apk add --no-cache git wget unzip curl bash || true
               echo "Dependencies installed successfully"
           volumeMounts:
             - name: app-data
@@ -176,7 +176,7 @@ spec:
             - -c
             - |
               set -e
-              apk add --no-cache unzip
+              apk add --no-cache unzip || true
               cd /app/java-app-runner{{ if .Values.app.appDir }}/{{ .Values.app.appDir }}{{ end }}
 
             {{- range $index, $template := .Values.app.templateFiles }}
@@ -226,6 +226,30 @@ spec:
           args:
             - -c
             - |
+            {{- if .Values.app.files }}
+              # Write custom files defined in values
+              {{- range $filePath, $content := .Values.app.files }}
+              echo "Writing file: {{ $filePath }}"
+              mkdir -p "$(dirname "{{ $filePath }}")"
+              printf '%s\n' '{{ $content }}' > "{{ $filePath }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.app.configReplacements }}
+              # Apply configuration replacements
+              which sed >/dev/null 2>&1 || apk add --no-cache sed || true
+              echo "Applying configuration replacements..."
+              {{- range $filePath, $replacements := .Values.app.configReplacements }}
+              if [ -f "{{ $filePath }}" ]; then
+                echo "Processing file: {{ $filePath }}"
+                {{- range $search, $replace := $replacements }}
+                sed -i 's|{{ $search }}|{{ $replace }}|g' "{{ $filePath }}"
+                {{- end }}
+              else
+                echo "Warning: File not found: {{ $filePath }}"
+              fi
+              {{- end }}
+              echo "Configuration replacements applied"
+            {{- end }}
               # Use exec to replace shell with Java, making Java PID 1
               # The tty and stdin settings allow attachment
               # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)

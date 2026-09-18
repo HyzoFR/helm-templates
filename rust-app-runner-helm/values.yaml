@@ -2,7 +2,7 @@
 replicaCount: 1
 
 # Network configuration
-hostNetwork: true  # Use host network for direct port exposure
+hostNetwork: false  # Use pod network
 
 # Debug sidecar (optional)
 debug:
