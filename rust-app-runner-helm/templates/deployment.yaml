@@ -6,7 +6,10 @@ metadata:
     {{- include "rust-app-runner.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  {{- if .Values.hostNetwork }}
+  {{- if or .Values.hostNetwork .Values.hostPort (and .Values.persistence .Values.persistence.enabled) }}
+  # hostPort reservations and RWO volumes can't be held by two pods at once:
+  # rolling would deadlock (new pod pending until old terminates, old kept
+  # alive until new is ready), so replace instead of surge.
   strategy:
     type: Recreate
   {{- end }}
