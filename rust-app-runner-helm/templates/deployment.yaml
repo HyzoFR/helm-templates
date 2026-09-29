@@ -225,6 +225,9 @@ spec:
             - name: app-port
               containerPort: {{ .Values.service.port }}
               protocol: {{ .Values.service.protocol }}
+            {{- if .Values.hostPort }}
+              hostPort: {{ .Values.hostPort }}
+            {{- end }}
           env:
         {{- if .Values.hostNetwork }}
             - name: HOST_IP
@@ -251,6 +254,10 @@ spec:
         {{- end }}
         {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
+        {{- end }}
+        {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
         {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

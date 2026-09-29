@@ -320,6 +320,11 @@ spec:
         - name: {{ $instance.name | trunc 15 | trimSuffix "-" }}
           containerPort: {{ $mergedService.port }}
           protocol: {{ $mergedService.protocol }}
+        {{- if and $.Values.health $.Values.health.enabled }}
+        - name: health-{{ $instanceIndex }}
+          containerPort: {{ add $.Values.health.port $instanceIndex }}
+          protocol: TCP
+        {{- end }}
         env:
         {{- if $.Values.hostNetwork }}
         - name: HOST_IP
@@ -327,8 +332,33 @@ spec:
             fieldRef:
               fieldPath: status.hostIP
         {{- end }}
+        {{- if and $.Values.health $.Values.health.enabled }}
+        - name: HEALTH_PORT
+          value: "{{ add $.Values.health.port $instanceIndex }}"
+        {{- end }}
         {{- if $mergedEnv }}
         {{- toYaml $mergedEnv | nindent 8 }}
+        {{- end }}
+        {{- if and $.Values.health $.Values.health.enabled }}
+        startupProbe:
+          httpGet:
+            path: /health
+            port: health-{{ $instanceIndex }}
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: health-{{ $instanceIndex }}
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: {{ $mergedService.port }}
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 6
         {{- end }}
         resources:
           {{- toYaml $mergedResources | nindent 10 }}

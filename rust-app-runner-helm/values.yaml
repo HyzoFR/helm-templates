@@ -4,6 +4,24 @@ replicaCount: 1
 # Network configuration
 hostNetwork: false  # Use pod network
 
+# Optional host port published on the node (0 = disabled). Traffic is DNAT'd
+# into the pod's own network namespace, so the pod can filter it with its
+# own netfilter rules (e.g. hyzo-health allowlisting :8404) without touching
+# the host firewall.
+hostPort: 0
+
+# Container securityContext, e.g. to manage the pod's own netfilter rules:
+# securityContext:
+#   capabilities:
+#     add: ["NET_ADMIN"]
+securityContext: {}
+
+# Companion monitor Service exposing only the app port with
+# publishNotReadyAddresses: true, so health checks still reach unready pods
+# and their /health bodies (starting/stalled + reason) stay readable.
+monitor:
+  enabled: false
+
 # Debug sidecar (optional)
 debug:
   enabled: false  # Set to true to add a debug sidecar container with shell access

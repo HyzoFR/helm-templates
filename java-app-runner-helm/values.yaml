@@ -1,0 +1,7 @@
+# HyzoCore /health endpoint (served by the Core plugin, not exposed to the host)
+health:
+  enabled: true
+  # Single-container releases bind this port.
+  # Instance mode (values.instances): instance i binds port + i (80, 81, 82, ...)
+  # because containers of one pod share the network namespace.
+  port: 80

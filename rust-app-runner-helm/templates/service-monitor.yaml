@@ -1,0 +1,20 @@
+{{- if and .Values.monitor .Values.monitor.enabled }}
+# Companion Service exposing the app port with publishNotReadyAddresses:
+# true so not-ready pods stay reachable for health aggregation.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rust-app-runner.fullname" . }}-monitor
+  labels:
+    {{- include "rust-app-runner.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: app-port
+    protocol: {{ .Values.service.protocol }}
+    name: health
+  selector:
+    {{- include "rust-app-runner.selectorLabels" . | nindent 4 }}
+{{- end }}

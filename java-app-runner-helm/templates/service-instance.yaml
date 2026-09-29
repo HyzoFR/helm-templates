@@ -9,12 +9,20 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-  {{- range $instance := .Values.instances }}
+  {{- range $instanceIndex, $instance := .Values.instances }}
   {{- $mergedService := merge ($instance.service | default dict) $.Values.service }}
   - port: {{ $mergedService.port }}
     targetPort: {{ $instance.name | trunc 15 | trimSuffix "-" }}
     protocol: {{ $mergedService.protocol }}
     name: {{ $instance.name | trunc 15 | trimSuffix "-" }}
+  {{- end }}
+  {{- if and .Values.health .Values.health.enabled }}
+  {{- range $instanceIndex, $instance := .Values.instances }}
+  - port: {{ add $.Values.health.port $instanceIndex }}
+    targetPort: health-{{ $instanceIndex }}
+    protocol: TCP
+    name: health-{{ $instanceIndex }}
+  {{- end }}
   {{- end }}
   selector:
     {{- include "java-app-runner.selectorLabels" . | nindent 4 }}

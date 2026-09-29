@@ -60,6 +60,12 @@ service:
   port: 25565
   protocol: TCP
 
+# HyzoCore /health endpoint (Core plugin). Container-internal only unless
+# service.type exposes it. Instance mode binds port + index (80, 81, ...).
+health:
+  enabled: true
+  port: 80
+
 # Debug configuration
 debug:
   enabled: false

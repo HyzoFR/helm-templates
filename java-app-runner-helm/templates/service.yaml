@@ -12,6 +12,12 @@ spec:
     targetPort: app-port
     protocol: {{ .Values.service.protocol }}
     name: app-port
+  {{- if and .Values.health .Values.health.enabled }}
+  - port: {{ .Values.health.port }}
+    targetPort: health
+    protocol: TCP
+    name: health
+  {{- end }}
   selector:
     {{- include "java-app-runner.selectorLabels" . | nindent 4 }}
 {{- end }}

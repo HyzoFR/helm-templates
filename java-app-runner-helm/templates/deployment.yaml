@@ -250,6 +250,10 @@ spec:
               {{- end }}
               echo "Configuration replacements applied"
             {{- end }}
+            {{- if .Values.app.preExec }}
+              echo "Executing pre-startup script..."
+              {{ .Values.app.preExec | nindent 14 }}
+            {{- end }}
               # Use exec to replace shell with Java, making Java PID 1
               # The tty and stdin settings allow attachment
               # To detach: use Ctrl+P then Ctrl+Q (standard Docker detach sequence)
@@ -258,6 +262,11 @@ spec:
             - name: app-port
               containerPort: {{ .Values.service.port }}
               protocol: {{ .Values.service.protocol }}
+          {{- if and .Values.health .Values.health.enabled }}
+            - name: health
+              containerPort: {{ .Values.health.port }}
+              protocol: TCP
+          {{- end }}
           env:
         {{- if .Values.hostNetwork }}
             - name: HOST_IP
@@ -265,9 +274,34 @@ spec:
                 fieldRef:
                   fieldPath: status.hostIP
         {{- end }}
+        {{- if and .Values.health .Values.health.enabled }}
+            - name: HEALTH_PORT
+              value: "{{ .Values.health.port }}"
+        {{- end }}
         {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
         {{- end }}
+          {{- if and .Values.health .Values.health.enabled }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: health
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: app-port
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

@@ -1,0 +1,32 @@
+{{- if and .Values.health .Values.health.enabled }}
+# Companion Service exposing ONLY the health ports, with
+# publishNotReadyAddresses: true so not-ready pods stay reachable.
+# External health aggregation (hyzo-health) reads /health from here even
+# while kubelet marks a pod unready — the app's own body (starting/stalled
+# + reason) stays the source of truth instead of a bare connection refusal.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "java-app-runner.fullname" . }}-monitor
+  labels:
+    {{- include "java-app-runner.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  ports:
+  {{- if .Values.instances }}
+  {{- range $instanceIndex, $instance := .Values.instances }}
+  - port: {{ add $.Values.health.port $instanceIndex }}
+    targetPort: health-{{ $instanceIndex }}
+    protocol: TCP
+    name: health-{{ $instanceIndex }}
+  {{- end }}
+  {{- else }}
+  - port: {{ .Values.health.port }}
+    targetPort: health
+    protocol: TCP
+    name: health
+  {{- end }}
+  selector:
+    {{- include "java-app-runner.selectorLabels" . | nindent 4 }}
+{{- end }}
