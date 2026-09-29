@@ -7,10 +7,8 @@ metadata:
     {{- include "java-app-runner.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  {{- if .Values.hostNetwork }}
   strategy:
     type: Recreate
-  {{- end }}
   selector:
     matchLabels:
       {{- include "java-app-runner.selectorLabels" . | nindent 6 }}
